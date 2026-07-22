@@ -42,6 +42,16 @@ func TestPrepareObsidianWorkspaceCreatesDefaultNotesVault(t *testing.T) {
 	}
 }
 
+func TestObsidianURIUsesVaultNameInsteadOfOpeningFileBrowser(t *testing.T) {
+	got, err := obsidianURI("/tmp/Obsidian/NightOps")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "obsidian://open?vault=NightOps" {
+		t.Fatalf("unexpected Obsidian URI: %q", got)
+	}
+}
+
 func TestFormatSyncMergeReportSurfacesConflictIDs(t *testing.T) {
 	report := syncbundle.MergeReport{Added: 1, Updated: 2, Skipped: 3, Conflicts: 2, ConflictIDs: []string{"mission:m-1", "launch_site:s-1"}}
 	message := formatSyncMergeReport(report)

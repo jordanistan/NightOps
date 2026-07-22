@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -270,7 +271,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	var openObsidianVault func() error
 	if cfg.Obsidian.Enabled && obsidianNotes != "" {
 		if info, statErr := os.Stat(obsidianNotes); statErr == nil && info.IsDir() {
-			openObsidianVault = func() error { return exec.Command("xdg-open", obsidianNotes).Start() }
+			openObsidianVault = func() error { return launchObsidian(obsidianNotes) }
 		}
 	}
 	weatherState := initializeWeather(ctx, cfg, store, weatherProvider, cfg.Origin.Latitude, cfg.Origin.Longitude)
@@ -1049,4 +1050,26 @@ func prepareObsidianWorkspace(cfg config.Config) (string, string, error) {
 		return "", "", fmt.Errorf("create Obsidian vault metadata directory: %w", err)
 	}
 	return root, notes, nil
+}
+
+// launchObsidian opens the configured directory as an Obsidian vault. Opening
+// the directory itself with xdg-open only starts the file manager, so use the
+// Obsidian URI scheme and let the installed desktop app resolve the vault.
+func launchObsidian(vaultDir string) error {
+	uri, err := obsidianURI(vaultDir)
+	if err != nil {
+		return err
+	}
+	if executable, err := exec.LookPath("obsidian"); err == nil {
+		return exec.Command(executable, uri).Start()
+	}
+	return exec.Command("xdg-open", uri).Start()
+}
+
+func obsidianURI(vaultDir string) (string, error) {
+	vaultName := filepath.Base(filepath.Clean(vaultDir))
+	if vaultName == "." || vaultName == string(filepath.Separator) || vaultName == "" {
+		return "", fmt.Errorf("cannot determine Obsidian vault name from %q", vaultDir)
+	}
+	return "obsidian://open?vault=" + url.QueryEscape(vaultName), nil
 }
