@@ -22,9 +22,11 @@ the automatically generated mission notebook.
 6. Choose `REVIEW & CREATE OBSIDIAN MISSION` and inspect the origin, target
    windows, equipment, detailed weather, and GO/NO-GO assessment. No date or
    time entry is required; an advanced override is available only when needed.
-7. Choose `LAUNCH + OPEN OBSIDIAN` to save the mission, generate the complete
-   vault structure, and open the configured vault. Choose `LAUNCH + CONTINUE IN
-   NIGHTOPS` to remain in the TUI.
+   The review screen is the final launch gate and includes `EDIT MISSION
+   DETAILS` to return to planning before anything is created.
+7. Choose `LAUNCH MISSION + OPEN OBSIDIAN` to save the mission, generate the
+   complete vault structure, and open the configured vault. Choose `LAUNCH
+   MISSION + CONTINUE IN NIGHTOPS` to remain in the TUI.
 
 ## Generated vault
 

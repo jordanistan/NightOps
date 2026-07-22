@@ -12,8 +12,10 @@ complete Obsidian mission workspace.
 4. NightOps calculates the local mission date, astronomical darkness,
    per-target visibility windows, and a weather `GO`, `NO-GO`, or `UNKNOWN`
    assessment.
-5. Review the equipment, conditions, target guidance, and generated mission.
-6. Choose `LAUNCH + OPEN OBSIDIAN` or continue in the TUI.
+5. Choose `REVIEW & CREATE OBSIDIAN MISSION`. The review screen is a launch
+   gate: inspect the generated mission and choose `EDIT MISSION DETAILS` if
+   something needs changing.
+6. Choose `LAUNCH MISSION + OPEN OBSIDIAN` or continue in the TUI.
 
 No date or normal mission-window form is required. The current run and selected
 targets provide the mission timing. An advanced manual override is available

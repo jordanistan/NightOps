@@ -2809,74 +2809,78 @@ func (m Model) forecastPrecipMax() int {
 }
 
 func (m Model) renderMissionPlan() string {
-	lines := []string{m.theme.PanelTitle.Render("MISSION PLANNING // TONIGHT"), "", "NightOps fills the date, target windows, and weather from this run.", ""}
+	lines := []string{
+		m.theme.PanelTitle.Render("MISSION PLANNING // TONIGHT"),
+		"",
+		m.theme.GoodStyle().Render("NEXT STEP"),
+		"Review the mission, make any edits, then launch it into Obsidian.",
+	}
+	actions := m.missionActions()
+	if len(actions) > 0 {
+		style := m.theme.SelectedLaunchAction
+		if m.missionPlan.selected != 0 {
+			style = m.theme.LaunchAction
+		}
+		lines = append(lines, style.Width(m.panelWidth()-4).Render("▸  REVIEW & CREATE OBSIDIAN MISSION"))
+	}
+	lines = append(lines, "", m.theme.PanelTitle.Render("MISSION SUMMARY"))
 	origin := nonEmpty(m.missionPlan.origin.Label, "origin not selected")
 	if m.missionPlan.origin.ZIP != "" {
 		origin += " · ZIP " + m.missionPlan.origin.ZIP
 	}
 	if m.missionPlan.origin.Latitude != nil && m.missionPlan.origin.Longitude != nil {
 		origin += fmt.Sprintf(" · %.4f, %.4f", *m.missionPlan.origin.Latitude, *m.missionPlan.origin.Longitude)
-		lines = append(lines, "ORIGIN       "+m.theme.GoodStyle().Render("READY")+" · "+compactText(origin, 58))
+		lines = append(lines, "Origin       "+m.theme.GoodStyle().Render("READY")+" · "+compactText(origin, 56))
 	} else {
-		lines = append(lines, "ORIGIN       "+m.theme.WarningStyle().Render("NEEDS COORDINATES")+" · "+compactText(origin, 44))
+		lines = append(lines, "Origin       "+m.theme.WarningStyle().Render("NEEDS COORDINATES")+" · "+compactText(origin, 42))
 	}
-
 	if m.missionPlan.plannedStart != nil && m.missionPlan.plannedEnd != nil {
 		location := m.scheduleLocation()
 		window := m.missionPlan.plannedStart.In(location).Format("15:04 MST") + " → " + m.missionPlan.plannedEnd.In(location).Format("15:04 MST")
-		lines = append(lines, "MISSION WINDOW "+m.theme.GoodStyle().Render("TONIGHT")+" · "+window)
-		if m.missionPlan.missionWindow != "" {
-			lines = append(lines, "               "+compactText(m.missionPlan.missionWindow, 56))
-		}
+		lines = append(lines, "Window       "+m.theme.GoodStyle().Render("TONIGHT")+" · "+window)
 	} else {
-		lines = append(lines, "MISSION WINDOW "+m.theme.WarningStyle().Render("WAITING")+" · select targets and a usable location")
+		lines = append(lines, "Window       "+m.theme.WarningStyle().Render("WAITING")+" · select a location and targets")
 	}
 	weatherCheck := nonEmpty(m.missionPlan.weatherDecision, nonEmpty(m.missionPlan.weather, "not available"))
-	lines = append(lines, "WEATHER      "+compactText(weatherCheck, 58))
+	lines = append(lines, "Weather      "+compactText(weatherCheck, 56))
 	if m.missionPlan.origin.Latitude == nil || m.missionPlan.origin.Longitude == nil {
-		lines = append(lines, m.theme.WarningStyle().Render("COORDINATES   unavailable until coordinates are known"))
+		lines = append(lines, m.theme.WarningStyle().Render("             Coordinates unavailable; weather and visibility are limited."))
 	}
-	if m.missionPlan.astronomy != "" {
-		lines = append(lines, "ASTRONOMY    "+compactText(m.missionPlan.astronomy, 58))
-	}
-	if m.missionPlan.forecast != "" {
-		lines = append(lines, "FORECAST     "+compactText(m.missionPlan.forecast, 58))
-	}
-	if m.missionPlan.route != "" && m.missionPlan.route != "unavailable" {
-		lines = append(lines, "ROUTE        "+compactText(m.missionPlan.route, 58))
-	}
-
+	equipment := nonEmpty(m.missionPlan.equipment, "not selected")
+	lines = append(lines, "Equipment     "+compactText(equipment, 56))
 	if len(m.missionPlan.targets) == 0 {
-		lines = append(lines, "TARGETS      "+m.theme.WarningStyle().Render("SELECT TARGETS"))
+		lines = append(lines, "Targets      "+m.theme.WarningStyle().Render("SELECT TARGETS"))
 	} else {
-		lines = append(lines, fmt.Sprintf("TARGETS      %s · %d selected", m.theme.GoodStyle().Render("READY"), len(m.missionPlan.targets)))
+		lines = append(lines, fmt.Sprintf("Targets      %s · %d selected", m.theme.GoodStyle().Render("READY"), len(m.missionPlan.targets)))
 		for position, target := range m.missionPlan.targets {
-			detail := target.Kind
+			lines = append(lines, fmt.Sprintf("             %d. %s · %s", position+1, compactText(target.Name, 26), target.Kind))
 			if m.options.TargetSummary != nil {
-				detail = compactText(m.options.TargetSummary(m.missionPlan.origin, target), 44)
-			}
-			lines = append(lines, fmt.Sprintf("             %d. %-24s %s", position+1, compactText(target.Name, 24), target.Kind))
-			if m.options.TargetSummary != nil {
-				lines = append(lines, "                  WINDOW "+compactText(detail, 54))
+				lines = append(lines, "                Visibility · "+compactText(m.options.TargetSummary(m.missionPlan.origin, target), 48))
 			}
 			if m.options.TargetForecastSummary != nil {
-				lines = append(lines, "                  WEATHER "+compactText(m.options.TargetForecastSummary(m.missionPlan.origin, target, m.missionPlan.forecastPoints), 50))
+				lines = append(lines, "                Weather    · "+compactText(m.options.TargetForecastSummary(m.missionPlan.origin, target, m.missionPlan.forecastPoints), 48))
 			}
 		}
 	}
-	equipment := nonEmpty(m.missionPlan.equipment, "not selected")
-	lines = append(lines, "EQUIPMENT    "+compactText(equipment, 58))
-	if m.missionPlan.briefPending {
-		lines = append(lines, m.theme.WarningStyle().Render("BRIEF        generating…"))
-	}
-	lines = append(lines, "", m.theme.PanelTitle.Render("NEXT STEP"))
-	actions := m.missionActions()
-	for index, action := range actions {
+	lines = append(lines, "", m.theme.PanelTitle.Render("EDIT BEFORE REVIEW"))
+	for index, action := range actions[1:] {
 		style := m.theme.Action
-		if index == m.missionPlan.selected {
+		if index+1 == m.missionPlan.selected {
 			style = m.theme.SelectedAction
 		}
 		lines = append(lines, style.Width(m.panelWidth()-4).Render(action))
+	}
+	if m.missionPlan.astronomy != "" || m.missionPlan.forecast != "" || m.missionPlan.route != "" {
+		lines = append(lines, "", m.theme.MutedStyle().Render("Additional context"))
+		if m.missionPlan.astronomy != "" {
+			lines = append(lines, m.theme.MutedStyle().Render("Astronomy · "+compactText(m.missionPlan.astronomy, 56)))
+		}
+		if m.missionPlan.forecast != "" {
+			lines = append(lines, m.theme.MutedStyle().Render("Forecast  · "+compactText(m.missionPlan.forecast, 56)))
+		}
+		if m.missionPlan.route != "" && m.missionPlan.route != "unavailable" {
+			lines = append(lines, m.theme.MutedStyle().Render("Route     · "+compactText(m.missionPlan.route, 56)))
+		}
 	}
 	lines = append(lines, "", m.theme.MutedStyle().Render(compactText(m.missionPlan.status, 70)), "", m.theme.MutedStyle().Render("↑/k ↓/j Navigate   Enter Select   Esc Back"))
 	wordmark := m.theme.Wordmark.Width(m.panelWidth()).Render("N I G H T O P S")
@@ -2884,52 +2888,52 @@ func (m Model) renderMissionPlan() string {
 }
 
 func (m Model) renderMissionReview() string {
-	status := func(ready bool, value, fallback string) string {
-		if ready {
-			return m.theme.GoodStyle().Render("READY") + " · " + value
-		}
-		return m.theme.MutedStyle().Render("NOT SET") + " · " + fallback
-	}
-	window := "No observing window; launch can still be recorded offline."
-	if m.missionPlan.plannedStart != nil && m.missionPlan.plannedEnd != nil {
-		location := m.scheduleLocation()
-		window = m.missionPlan.plannedStart.In(location).Format("2006-01-02 15:04 MST") + " → " + m.missionPlan.plannedEnd.In(location).Format("2006-01-02 15:04 MST")
-	}
-	targets := "No targets selected; observations can be entered manually."
-	if len(m.missionPlan.targets) > 0 {
-		ordered := make([]string, 0, len(m.missionPlan.targets))
-		for index, target := range m.missionPlan.targets {
-			ordered = append(ordered, fmt.Sprintf("%d. %s", index+1, target.Name))
-		}
-		targets = strings.Join(ordered, "   ")
-	}
-	equipment := "No equipment profile selected."
-	if m.missionPlan.equipment != "" {
-		equipment = m.missionPlan.equipment + " · " + m.equipmentReadinessLine(m.missionPlan.equipmentID)
-	}
 	lines := []string{
 		m.wordmark(),
-		m.theme.PanelTitle.Render("MISSION // FINAL REVIEW"),
+		m.theme.PanelTitle.Render("MISSION REVIEW // READY TO LAUNCH"),
 		"",
-		"Confirm the recorded inputs before creating the local mission.",
+		"Nothing has been created yet. Confirm the summary, edit if needed, then launch.",
 		"",
-		"ORIGIN          " + status(m.missionPlan.origin.Label != "", m.missionPlan.origin.Label, "origin required"),
-		"TARGET SEQUENCE " + status(len(m.missionPlan.targets) > 0, targets, targets),
-		"OBSERVING WINDOW (TONIGHT) " + status(m.missionPlan.plannedStart != nil && m.missionPlan.plannedEnd != nil, window, window),
-		"EQUIPMENT       " + status(m.missionPlan.equipmentID != "", equipment, equipment),
-		"ASTRONOMY       " + nonEmpty(m.missionPlan.astronomy, "unknown until coordinates are available"),
-		"WEATHER         " + nonEmpty(m.missionPlan.weatherDecision, nonEmpty(m.missionPlan.weather, "unavailable")),
-		"",
+		m.theme.PanelTitle.Render("MISSION DETAILS"),
+		"Date         " + formatArchiveTime(archiveMissionDate(MissionSummary{PlannedStart: m.missionPlan.plannedStart, CreatedAt: time.Now(), Timezone: m.missionPlan.origin.Timezone}), m.missionPlan.origin.Timezone),
+		"Origin       " + compactText(nonEmpty(m.missionPlan.origin.Label, "not selected"), 56),
+		"Window       " + reviewWindow(m),
+		"Weather      " + compactText(nonEmpty(m.missionPlan.weatherDecision, nonEmpty(m.missionPlan.weather, "unavailable")), 56),
+		"Equipment    " + compactText(nonEmpty(m.missionPlan.equipment, "not selected"), 56),
 	}
-	for index, action := range []string{"LAUNCH + OPEN OBSIDIAN", "LAUNCH + CONTINUE IN NIGHTOPS", "RETURN TO MISSION PLANNING"} {
+	if len(m.missionPlan.targets) == 0 {
+		lines = append(lines, "Targets      "+m.theme.WarningStyle().Render("none selected"))
+	} else {
+		lines = append(lines, fmt.Sprintf("Targets      %d selected", len(m.missionPlan.targets)))
+		for index, target := range m.missionPlan.targets {
+			lines = append(lines, fmt.Sprintf("             %d. %s · %s", index+1, compactText(target.Name, 28), target.Kind))
+		}
+	}
+	lines = append(lines, "", m.theme.PanelTitle.Render("FINAL ACTION"))
+	for index, action := range []string{"LAUNCH MISSION + OPEN OBSIDIAN", "LAUNCH MISSION + CONTINUE IN NIGHTOPS", "EDIT MISSION DETAILS"} {
 		style := m.theme.Action
+		if index < 2 {
+			style = m.theme.LaunchAction
+		}
 		if index == m.missionReview.selected {
-			style = m.theme.SelectedAction
+			if index < 2 {
+				style = m.theme.SelectedLaunchAction
+			} else {
+				style = m.theme.SelectedAction
+			}
 		}
 		lines = append(lines, style.Width(m.panelWidth()-4).Render(action))
 	}
-	lines = append(lines, "", m.theme.MutedStyle().Render("↑/k ↓/j Navigate   Enter Select   Esc Back"))
+	lines = append(lines, "", m.theme.MutedStyle().Render("↑/k ↓/j Select   Enter Continue   Esc Back"))
 	return m.center(m.theme.Panel.Width(m.panelWidth()).Render(lipgloss.JoinVertical(lipgloss.Left, lines...)))
+}
+
+func reviewWindow(m Model) string {
+	if m.missionPlan.plannedStart == nil || m.missionPlan.plannedEnd == nil {
+		return "not available"
+	}
+	location := m.scheduleLocation()
+	return m.missionPlan.plannedStart.In(location).Format("2006-01-02 15:04 MST") + " → " + m.missionPlan.plannedEnd.In(location).Format("2006-01-02 15:04 MST")
 }
 
 func (m *Model) updateDeepSpace(key string) tea.Cmd {

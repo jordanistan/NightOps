@@ -26,8 +26,10 @@ The normal dark-session workflow is intentionally short:
    knowledge cache from the configured Wikipedia-compatible endpoint.
 2. Choose `LAUNCH MISSION`. NightOps immediately asks for the ordered targets;
    select them, then choose
-   `LAUNCH + OPEN OBSIDIAN` in Final Review. `LAUNCH + CONTINUE IN NIGHTOPS`
-   stays available when you want to remain in the TUI.
+   `REVIEW & CREATE OBSIDIAN MISSION`, then inspect the final summary. Use
+   `EDIT MISSION DETAILS` to return to planning, or choose `LAUNCH MISSION +
+   OPEN OBSIDIAN`. `LAUNCH MISSION + CONTINUE IN NIGHTOPS` stays available when
+   you want to remain in the TUI.
 3. NightOps writes the mission, location, equipment checklist, detailed cached
    weather report, target sequence, capture guidance, reference summaries, and
    image links before opening the configured vault directory.

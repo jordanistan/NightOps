@@ -91,7 +91,7 @@ func TestLaunchStartsWithTargetSelectionAndBuildsLiveMissionWindow(t *testing.T)
 	model = updated.(Model)
 	updated, _ = model.Update(runeKey('c'))
 	model = updated.(Model)
-	if model.route != RouteMissionPlanning || model.missionPlan.plannedStart == nil || !strings.Contains(model.View(), "GO · 1/1") || !strings.Contains(model.View(), "live tonight") {
+	if model.route != RouteMissionPlanning || model.missionPlan.plannedStart == nil || !strings.Contains(model.View(), "GO · 1/1") || model.missionPlan.missionWindow != "live tonight · 1 target(s) evaluated above 30°" {
 		t.Fatalf("target-first planning did not build automatic mission context: route=%s view=%s", model.route, model.View())
 	}
 }
@@ -152,7 +152,7 @@ func TestMissionReviewPrecedesPersistenceAndLaunch(t *testing.T) {
 	if model.route != RouteMissionReview || created {
 		t.Fatalf("planning did not stop at review: route=%s created=%v", model.route, created)
 	}
-	for _, expected := range []string{"FINAL REVIEW", "ORIGIN", "TARGET SEQUENCE", "OBSERVING WINDOW", "LAUNCH + OPEN OBSIDIAN", "LAUNCH + CONTINUE IN NIGHTOPS"} {
+	for _, expected := range []string{"MISSION REVIEW // READY TO LAUNCH", "MISSION DETAILS", "FINAL ACTION", "LAUNCH MISSION + OPEN OBSIDIAN", "LAUNCH MISSION + CONTINUE IN NIGHTOPS", "EDIT MISSION DETAILS"} {
 		if !strings.Contains(model.View(), expected) {
 			t.Fatalf("review screen missing %q: %s", expected, model.View())
 		}
@@ -228,7 +228,7 @@ func TestMissionScheduleFlowPersistsLocalWindow(t *testing.T) {
 	model = updated.(Model)
 	updated, _ = model.Update(enterKey())
 	model = updated.(Model)
-	for range 4 {
+	for range model.scheduleActionIndex() {
 		updated, _ = model.Update(downKey())
 		model = updated.(Model)
 	}
@@ -243,10 +243,10 @@ func TestMissionScheduleFlowPersistsLocalWindow(t *testing.T) {
 	model = typeText(model, "2026-07-23 01:00")
 	updated, _ = model.Update(enterKey())
 	model = updated.(Model)
-	if model.route != RouteMissionPlanning || model.missionPlan.plannedStart == nil || !strings.Contains(model.View(), "MISSION WINDOW") {
+	if model.route != RouteMissionPlanning || model.missionPlan.plannedStart == nil || !strings.Contains(model.View(), "Window") {
 		t.Fatalf("mission schedule did not return to planning: route=%s view=%s", model.route, model.View())
 	}
-	for range 4 {
+	for range model.missionPlan.selected {
 		updated, _ = model.Update(runeKey('k'))
 		model = updated.(Model)
 	}

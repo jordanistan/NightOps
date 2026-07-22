@@ -277,8 +277,8 @@ permissions, and never overwrite the active database.
 Mission Planning's `REVIEW & CREATE OBSIDIAN MISSION` route groups the selected
 origin, ordered targets, per-target windows, automatic observing window,
 equipment, and weather GO/NO-GO assessment before any write.
-Returning to planning preserves the retained child model. `LAUNCH + OPEN
-OBSIDIAN` or `LAUNCH + CONTINUE IN NIGHTOPS` then persists the planned mission
+Returning to planning preserves the retained child model. The final review
+launch actions then persist the planned mission
 and its launch site. When Obsidian is configured, the same confirmation writes
 a mission note using an atomic replacement. A ZIP origin is intentionally
 exported with `unknown` coordinates until geocoding is available. Atlas
