@@ -1,0 +1,16 @@
+nightops/
+├── cmd/nightops/
+├── internal/
+│   ├── app/
+│   ├── config/
+│   ├── console/
+│   ├── domain/
+│   ├── export/obsidian/
+│   ├── featureflags/
+│   └── storage/sqlite/
+├── migrations/
+├── docs/
+├── testdata/
+├── web/
+├── Makefile
+└── go.mod

@@ -1,0 +1,23 @@
+app:
+  name: NightOps
+  data_dir: "~/.local/share/nightops"
+  log_level: info
+  theme: mission-control
+
+origin:
+  mode: home_base
+  home_base_name: Home Base
+  latitude: 30.2672
+  longitude: -97.7431
+  timezone: America/Chicago
+
+obsidian:
+  enabled: true
+  vault_dir: "~/Documents/Obsidian"
+  notes_dir: NightOps
+
+features:
+  command_palette: true
+  atlas: false
+  weather: false
+  plugins: false
