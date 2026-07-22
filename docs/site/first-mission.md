@@ -42,10 +42,11 @@ NightOps/
 ```
 
 Every mission note contains auto-filled properties, local mission date,
-launch-site details, current and hourly weather, an equipment checklist, the
-ordered target list, capture guidance, and links into target/location/equipment
-pages. Target notes retain reference summaries, representative image links,
-and a history line for every mission and location that used the object.
+launch-site details, current weather, a static equipment checklist, and an
+ordered target table with capture guidance and recommended starting settings.
+The long hourly forecast is at the bottom. Target notes retain reference
+summaries, representative image links, reusable capture settings, and a
+history line for every mission and location that used the object.
 
 Mission names default to the local observing date and start time. The offline
 Mission Archive is newest-first, and the generated Missions index is also kept

@@ -30,9 +30,11 @@ The normal dark-session workflow is intentionally short:
    `EDIT MISSION DETAILS` to return to planning, or choose `LAUNCH MISSION +
    OPEN OBSIDIAN`. `LAUNCH MISSION + CONTINUE IN NIGHTOPS` stays available when
    you want to remain in the TUI.
-3. NightOps writes the mission, location, equipment checklist, detailed cached
-   weather report, target sequence, capture guidance, reference summaries, and
-   image links before opening the configured vault directory.
+3. NightOps writes the mission, location, static equipment checklist, detailed
+   weather summary, a reusable target/settings table, reference summaries, and
+   image links before opening the configured vault directory. The hourly
+   forecast is deliberately placed at the bottom so actionable mission
+   information stays near the top.
 
 The default vault is `~/Documents/Obsidian/NightOps`. NightOps creates the
 parent `Obsidian` directory, the `NightOps` vault directory, and `.obsidian`
@@ -47,9 +49,9 @@ selected targets. No date or time form is required.
 
 Mission notes include launch-site facts, all cached hourly weather values,
 equipment checkboxes, ordered target links, per-target visibility windows,
-capture guidance, and mission-scoped
+capture guidance, recommended starting settings, and mission-scoped
 target/equipment notes. Each target note retains its source summary,
-representative image link, capture guidance, and a mission history line with
+representative image link, capture guidance, reusable capture settings, and a mission history line with
 mission, status, location, and date. Reusing a target adds another history line
 without deleting previous links. SQLite is the cache and source of truth;
 Obsidian is the readable projection. Missing live data is labeled unavailable

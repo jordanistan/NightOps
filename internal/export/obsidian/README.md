@@ -8,9 +8,11 @@ Generated mission content includes:
 
 - YAML properties and the live mission date/window.
 - Launch-site coordinates and linked location note.
-- Current conditions and hourly weather forecast.
-- Equipment checklist and readiness context.
-- Ordered targets, visibility windows, capture guidance, and reference links.
+- Current conditions and an hourly weather forecast placed at the bottom of the
+  mission note.
+- A static pre-flight equipment checklist plus configured equipment context.
+- An ordered target table with visibility context, capture guidance, reusable
+  starting settings, and reference links.
 - Target mission history and representative image links when available.
 
 Writes are atomic. Existing user-authored notes and recorder sections must

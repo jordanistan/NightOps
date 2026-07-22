@@ -59,11 +59,12 @@ NightOps/
 └── Equipment/Index.md
 ```
 
-Mission notes include auto-filled properties, launch-site details, current and
-hourly weather, equipment checklists, target visibility and capture guidance,
-source-attributed reference summaries, and links to reusable target history.
-Target notes retain a mission-by-mission history, including links to each
-mission and its observing location.
+Mission notes include auto-filled properties, launch-site details, current
+weather, a repeatable equipment pre-flight checklist, and a target table with
+capture guidance plus recommended starting settings. The long hourly forecast
+is placed at the bottom of the note. Target notes retain source-attributed
+reference summaries, reusable capture settings, and a mission-by-mission
+history with links to each mission and its observing location.
 
 When no custom name is supplied, missions are named with their local observing
 date and start time, such as `Mission 2026-07-22 21-04-05`. The Mission Archive

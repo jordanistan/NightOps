@@ -183,15 +183,21 @@ func TestRichMissionProjectionWritesLiveConditionsTargetsAndHistory(t *testing.T
 	}
 	note := readNote(t, vault, "Missions", "Live-Session.md")
 	targetNote := readNote(t, vault, "Targets", "Andromeda-Galaxy.md")
-	for _, expected := range []string{"## Live Conditions", "22.5°C", "## Equipment Checklist", "## Selected Targets", "Use a wider field", "[[Targets/Andromeda-Galaxy]]"} {
+	for _, expected := range []string{"## Live Conditions", "22.5°C", "## Equipment Checklist", "Telescope or optical tube", "## Selected Targets", "| # | Target | Type | Capture guidance | Recommended starting settings | Reference |", "Use a wider field", "Broadband / UV-IR filter", "[[Targets/Andromeda-Galaxy]]", "## Hourly Forecast"} {
 		if !strings.Contains(note, expected) {
 			t.Fatalf("rich mission note missing %q: %s", expected, note)
 		}
+	}
+	if strings.Index(note, "## Hourly Forecast") < strings.Index(note, "## Selected Targets") {
+		t.Fatalf("hourly forecast should follow the target table: %s", note)
 	}
 	for _, expected := range []string{"A nearby galaxy.", "https://images.test/m31.jpg", "[[Missions/Live-Session]]", "Home Base"} {
 		if !strings.Contains(targetNote, expected) {
 			t.Fatalf("target knowledge/history missing %q: %s", expected, targetNote)
 		}
+	}
+	if !strings.Contains(targetNote, "## Capture Settings") || !strings.Contains(targetNote, "Broadband / UV-IR filter") {
+		t.Fatalf("target note missing reusable capture settings: %s", targetNote)
 	}
 }
 

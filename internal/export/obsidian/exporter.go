@@ -221,22 +221,23 @@ func richMissionSections(mission domain.Mission, site domain.LaunchSite, project
 	if projection.Weather == nil {
 		body.WriteString("Weather: **Unavailable** — no cached or live snapshot was available at export time.\n")
 	} else {
-		body.WriteString(weatherReport(*projection.Weather))
+		body.WriteString(weatherSummary(*projection.Weather))
 	}
 	body.WriteString("\n## Equipment Checklist\n\n")
+	body.WriteString("Use this same pre-flight checklist for every mission. Tick items as they are confirmed in the field.\n\n")
+	for _, item := range staticEquipmentChecklist {
+		fmt.Fprintf(&body, "- [ ] %s\n", item)
+	}
+	body.WriteString("\n### Configured Equipment\n\n")
 	if projection.Equipment == nil {
-		body.WriteString("- [ ] No equipment profile selected\n")
+		body.WriteString("No equipment profile selected.\n")
 	} else {
 		fmt.Fprintf(&body, "- Profile: **%s** ([[Equipment/%s]])\n", safeMarkdown(projection.Equipment.Name), safeName(projection.Equipment.Name))
 		if len(projection.EquipmentItems) == 0 {
-			body.WriteString("- [ ] No inventory items recorded\n")
+			body.WriteString("No inventory items recorded for this profile.\n")
 		} else {
 			for _, item := range projection.EquipmentItems {
-				marker := "[ ]"
-				if !item.Required {
-					marker = "[ ]"
-				}
-				fmt.Fprintf(&body, "- %s **%s** — %s (%s)\n", marker, safeMarkdown(item.Name), safeMarkdown(item.Category), requirement(item.Required))
+				fmt.Fprintf(&body, "- **%s** — %s (%s)\n", safeMarkdown(item.Name), safeMarkdown(item.Category), requirement(item.Required))
 			}
 		}
 	}
@@ -244,21 +245,29 @@ func richMissionSections(mission domain.Mission, site domain.LaunchSite, project
 	if len(projection.Targets) == 0 {
 		body.WriteString("No catalog targets selected.\n")
 	} else {
+		body.WriteString("These are recommended starting settings, not camera-specific measurements. Keep the settings comparable when repeating a target, then adjust for sky brightness, tracking, and sensor response.\n\n")
+		body.WriteString("| # | Target | Type | Capture guidance | Recommended starting settings | Reference |\n| ---: | --- | --- | --- | --- | --- |\n")
 		for index, target := range projection.Targets {
 			knowledge := projection.TargetKnowledge[target.ID]
-			fmt.Fprintf(&body, "%d. [[Targets/%s]] — %s\n", index+1, safeName(target.Name), captureGuidance(target.Kind))
+			recommendation := captureProfileForKind(target.Kind)
+			reference := "**Unavailable**"
 			if knowledge.Status == "unavailable" {
-				body.WriteString("   - Reference: **Unavailable**\n")
+				reference = "**Unavailable**"
 			} else {
-				fmt.Fprintf(&body, "   - Reference: [[Targets/%s]] · %s\n", safeName(target.Name), nonEmpty(knowledge.Status, "cached"))
+				reference = fmt.Sprintf("[[Targets/%s]] · %s", safeName(target.Name), nonEmpty(knowledge.Status, "cached"))
 			}
+			fmt.Fprintf(&body, "| %d | [[Targets/%s]] | %s | %s | %s | %s |\n", index+1, safeName(target.Name), safeMarkdown(target.Kind), recommendation.Guidance, recommendation.Settings, reference)
 		}
 	}
 	body.WriteString(fmt.Sprintf("\n- Launch site: [[Locations/%s]]\n- Mission date: %s\n", safeName(site.Name), missionDate(mission, site)))
+	if projection.Weather != nil && len(projection.Weather.Forecast) > 0 {
+		body.WriteString("\n## Hourly Forecast\n\n")
+		body.WriteString(hourlyForecast(*projection.Weather))
+	}
 	return body.String()
 }
 
-func weatherReport(snapshot weather.Snapshot) string {
+func weatherSummary(snapshot weather.Snapshot) string {
 	var body strings.Builder
 	freshness := "stale cache"
 	if snapshot.Fresh(time.Now().UTC()) {
@@ -275,11 +284,14 @@ func weatherReport(snapshot weather.Snapshot) string {
 	} else {
 		body.WriteString("- Cloud cover: unavailable\n")
 	}
-	if len(snapshot.Forecast) > 0 {
-		body.WriteString("\n### Hourly Forecast\n\n| Time (UTC) | Temperature | Clouds | Precipitation |\n| --- | ---: | ---: | ---: |\n")
-		for _, point := range snapshot.Forecast {
-			body.WriteString("| " + point.At.UTC().Format("2006-01-02 15:04") + " | " + floatOrUnknown(point.TemperatureC, "°C") + " | " + floatOrUnknown(point.CloudCoverPercent, "%") + " | " + floatOrUnknown(point.PrecipitationProbability, "%") + " |\n")
-		}
+	return body.String()
+}
+
+func hourlyForecast(snapshot weather.Snapshot) string {
+	var body strings.Builder
+	body.WriteString("| Time (UTC) | Temperature | Clouds | Precipitation |\n| --- | ---: | ---: | ---: |\n")
+	for _, point := range snapshot.Forecast {
+		body.WriteString("| " + point.At.UTC().Format("2006-01-02 15:04") + " | " + floatOrUnknown(point.TemperatureC, "°C") + " | " + floatOrUnknown(point.CloudCoverPercent, "%") + " | " + floatOrUnknown(point.PrecipitationProbability, "%") + " |\n")
 	}
 	return body.String()
 }
@@ -296,7 +308,9 @@ func (e Exporter) writeTargetKnowledge(target domain.MissionTarget, knowledge do
 		content = fmt.Sprintf("---\nid: %s\nname: %s\nkind: %s\nsource: %s\n---\n\n# %s\n", safeMarkdown(target.ID), safeMarkdown(target.Name), safeMarkdown(target.Kind), safeMarkdown(target.Source), safeMarkdown(target.Name))
 	}
 	content = ensureSection(content, "Reference", fmt.Sprintf("- Status: **%s**\n- Source: %s\n- Page: %s\n- Summary: %s\n", nonEmpty(knowledge.Status, "unavailable"), nonEmpty(knowledge.Source, "unavailable"), nonEmpty(linkOrUnknown(knowledge.URL), "unavailable"), nonEmpty(safeMarkdown(knowledge.Summary), "unavailable")))
-	content = ensureSection(content, "Capture Guidance", "- "+captureGuidance(target.Kind)+"\n")
+	recommendation := captureProfileForKind(target.Kind)
+	content = ensureSection(content, "Capture Guidance", "- "+recommendation.Guidance+"\n")
+	content = ensureSection(content, "Capture Settings", "- Recommended starting settings: "+recommendation.Settings+"\n- Repeatability note: Keep these settings comparable between locations, then adjust for sky brightness, tracking, and sensor response.\n")
 	if knowledge.ImageURL != "" {
 		content = ensureSection(content, "Images", fmt.Sprintf("![](%s)\n\n- Source image: %s\n", knowledge.ImageURL, knowledge.ImageURL))
 	}
@@ -310,7 +324,8 @@ func (e Exporter) writeMissionTarget(target domain.MissionTarget, knowledge doma
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	content := fmt.Sprintf("---\nmission_id: %s\ntarget_id: %s\nposition: %d\nknowledge_status: %s\n---\n\n# %s\n\n- Mission: [[Missions/%s]]\n- Catalog target: [[Targets/%s]]\n- Kind: %s\n- Right ascension: %.6f°\n- Declination: %.6f°\n- Source: %s\n\n## Capture Guidance\n\n%s\n\n## Reference\n\n%s\n", safeMarkdown(mission.ID), safeMarkdown(target.ID), target.Position+1, nonEmpty(knowledge.Status, "unavailable"), safeMarkdown(target.Name), safeName(mission.Name), safeName(target.Name), safeMarkdown(target.Kind), target.RightAscension, target.Declination, safeMarkdown(target.Source), captureGuidance(target.Kind), nonEmpty(safeMarkdown(knowledge.Summary), "Reference unavailable"))
+	recommendation := captureProfileForKind(target.Kind)
+	content := fmt.Sprintf("---\nmission_id: %s\ntarget_id: %s\nposition: %d\nknowledge_status: %s\n---\n\n# %s\n\n- Mission: [[Missions/%s]]\n- Catalog target: [[Targets/%s]]\n- Kind: %s\n- Right ascension: %.6f°\n- Declination: %.6f°\n- Source: %s\n\n## Capture Guidance\n\n%s\n\n## Capture Settings\n\n- Recommended starting settings: %s\n- Repeatability note: Keep these settings comparable between locations, then adjust for sky brightness, tracking, and sensor response.\n\n## Reference\n\n%s\n", safeMarkdown(mission.ID), safeMarkdown(target.ID), target.Position+1, nonEmpty(knowledge.Status, "unavailable"), safeMarkdown(target.Name), safeName(mission.Name), safeName(target.Name), safeMarkdown(target.Kind), target.RightAscension, target.Declination, safeMarkdown(target.Source), recommendation.Guidance, recommendation.Settings, nonEmpty(safeMarkdown(knowledge.Summary), "Reference unavailable"))
 	return atomicWrite(filepath.Join(dir, safeName(target.Name)+".md"), content)
 }
 
@@ -428,17 +443,49 @@ func requirement(required bool) string {
 	return "optional"
 }
 
-func captureGuidance(kind string) string {
+var staticEquipmentChecklist = []string{
+	"Telescope or optical tube",
+	"Camera or imaging device",
+	"Mount / tracker and tripod",
+	"Power source, batteries, and spare power",
+	"Memory card or storage",
+	"Filters, dew control, and lens heater",
+	"Cables, adapters, and control device",
+	"Focus confirmed and test frame reviewed",
+}
+
+type captureProfile struct {
+	Guidance string
+	Settings string
+}
+
+func captureProfileForKind(kind string) captureProfile {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "galaxy":
-		return "Use a wider field and moderate integration; preserve the bright core while exposing faint outer structure."
+		return captureProfile{
+			Guidance: "Use a wider field and moderate integration; preserve the bright core while exposing faint outer structure.",
+			Settings: "Broadband / UV-IR filter; 120–180 s subs; low or unity gain; 30–60 subs; 1.5–3 h total; dither every 3–5 frames.",
+		}
 	case "nebula":
-		return "Use a narrowband or light-pollution-aware filter when available; capture multiple shorter subs for the brightest regions."
+		return captureProfile{
+			Guidance: "Use a narrowband or light-pollution-aware filter when available; capture multiple shorter subs for the brightest regions.",
+			Settings: "Dual-band / narrowband filter when available; 30–120 s subs plus 5–15 s HDR subs; unity gain; 60–120 subs; 1–3 h total.",
+		}
 	case "cluster":
-		return "Use a field of view that includes the surrounding star field; keep stars sharp with short, well-focused subs."
+		return captureProfile{
+			Guidance: "Use a field of view that includes the surrounding star field; keep stars sharp with short, well-focused subs.",
+			Settings: "Broadband filter; 30–90 s subs; low gain / ISO; 30–60 subs; 30–90 min total; prioritize round, unsaturated stars.",
+		}
 	default:
-		return "Confirm focus, framing, and exposure with a short test capture before committing the sequence."
+		return captureProfile{
+			Guidance: "Confirm focus, framing, and exposure with a short test capture before committing the sequence.",
+			Settings: "Start with 60 s subs at low or unity gain; capture 10 test subs, inspect stars and histogram, then extend the sequence.",
+		}
 	}
+}
+
+func captureGuidance(kind string) string {
+	return captureProfileForKind(kind).Guidance
 }
 
 func floatOrUnknown(value *float64, suffix string) string {
