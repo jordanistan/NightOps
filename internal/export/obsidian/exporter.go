@@ -249,7 +249,7 @@ func richMissionSections(mission domain.Mission, site domain.LaunchSite, project
 		body.WriteString("| # | Target | Type | Capture guidance | Recommended starting settings | Reference |\n| ---: | --- | --- | --- | --- | --- |\n")
 		for index, target := range projection.Targets {
 			knowledge := projection.TargetKnowledge[target.ID]
-			recommendation := captureProfileForKind(target.Kind)
+			recommendation := domain.CaptureProfileForKind(target.Kind)
 			reference := "**Unavailable**"
 			if knowledge.Status == "unavailable" {
 				reference = "**Unavailable**"
@@ -308,7 +308,7 @@ func (e Exporter) writeTargetKnowledge(target domain.MissionTarget, knowledge do
 		content = fmt.Sprintf("---\nid: %s\nname: %s\nkind: %s\nsource: %s\n---\n\n# %s\n", safeMarkdown(target.ID), safeMarkdown(target.Name), safeMarkdown(target.Kind), safeMarkdown(target.Source), safeMarkdown(target.Name))
 	}
 	content = ensureSection(content, "Reference", fmt.Sprintf("- Status: **%s**\n- Source: %s\n- Page: %s\n- Summary: %s\n", nonEmpty(knowledge.Status, "unavailable"), nonEmpty(knowledge.Source, "unavailable"), nonEmpty(linkOrUnknown(knowledge.URL), "unavailable"), nonEmpty(safeMarkdown(knowledge.Summary), "unavailable")))
-	recommendation := captureProfileForKind(target.Kind)
+	recommendation := domain.CaptureProfileForKind(target.Kind)
 	content = ensureSection(content, "Capture Guidance", "- "+recommendation.Guidance+"\n")
 	content = ensureSection(content, "Capture Settings", "- Recommended starting settings: "+recommendation.Settings+"\n- Repeatability note: Keep these settings comparable between locations, then adjust for sky brightness, tracking, and sensor response.\n")
 	if knowledge.ImageURL != "" {
@@ -324,7 +324,7 @@ func (e Exporter) writeMissionTarget(target domain.MissionTarget, knowledge doma
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	recommendation := captureProfileForKind(target.Kind)
+	recommendation := domain.CaptureProfileForKind(target.Kind)
 	content := fmt.Sprintf("---\nmission_id: %s\ntarget_id: %s\nposition: %d\nknowledge_status: %s\n---\n\n# %s\n\n- Mission: [[Missions/%s]]\n- Catalog target: [[Targets/%s]]\n- Kind: %s\n- Right ascension: %.6f°\n- Declination: %.6f°\n- Source: %s\n\n## Capture Guidance\n\n%s\n\n## Capture Settings\n\n- Recommended starting settings: %s\n- Repeatability note: Keep these settings comparable between locations, then adjust for sky brightness, tracking, and sensor response.\n\n## Reference\n\n%s\n", safeMarkdown(mission.ID), safeMarkdown(target.ID), target.Position+1, nonEmpty(knowledge.Status, "unavailable"), safeMarkdown(target.Name), safeName(mission.Name), safeName(target.Name), safeMarkdown(target.Kind), target.RightAscension, target.Declination, safeMarkdown(target.Source), recommendation.Guidance, recommendation.Settings, nonEmpty(safeMarkdown(knowledge.Summary), "Reference unavailable"))
 	return atomicWrite(filepath.Join(dir, safeName(target.Name)+".md"), content)
 }
@@ -452,40 +452,6 @@ var staticEquipmentChecklist = []string{
 	"Filters, dew control, and lens heater",
 	"Cables, adapters, and control device",
 	"Focus confirmed and test frame reviewed",
-}
-
-type captureProfile struct {
-	Guidance string
-	Settings string
-}
-
-func captureProfileForKind(kind string) captureProfile {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "galaxy":
-		return captureProfile{
-			Guidance: "Use a wider field and moderate integration; preserve the bright core while exposing faint outer structure.",
-			Settings: "Broadband / UV-IR filter; 120–180 s subs; low or unity gain; 30–60 subs; 1.5–3 h total; dither every 3–5 frames.",
-		}
-	case "nebula":
-		return captureProfile{
-			Guidance: "Use a narrowband or light-pollution-aware filter when available; capture multiple shorter subs for the brightest regions.",
-			Settings: "Dual-band / narrowband filter when available; 30–120 s subs plus 5–15 s HDR subs; unity gain; 60–120 subs; 1–3 h total.",
-		}
-	case "cluster":
-		return captureProfile{
-			Guidance: "Use a field of view that includes the surrounding star field; keep stars sharp with short, well-focused subs.",
-			Settings: "Broadband filter; 30–90 s subs; low gain / ISO; 30–60 subs; 30–90 min total; prioritize round, unsaturated stars.",
-		}
-	default:
-		return captureProfile{
-			Guidance: "Confirm focus, framing, and exposure with a short test capture before committing the sequence.",
-			Settings: "Start with 60 s subs at low or unity gain; capture 10 test subs, inspect stars and histogram, then extend the sequence.",
-		}
-	}
-}
-
-func captureGuidance(kind string) string {
-	return captureProfileForKind(kind).Guidance
 }
 
 func floatOrUnknown(value *float64, suffix string) string {

@@ -204,7 +204,10 @@ contact the device; the first control request is bounded by `timeout_seconds`.
 Dwarf commands use the mission origin's real coordinates and fail clearly when
 those coordinates are unavailable. Transport or device errors remain visible.
 The active Deep Space console labels telescope control unavailable when neither
-adapter is configured; it never presents a nonfunctional slew action.
+adapter is configured; it never presents a nonfunctional slew action. Its
+capture matrix uses the shared target-class recommendations rendered in the
+Obsidian target notes, so the live workflow and generated reference pages do
+not drift apart.
 
 AI mission briefs are opt-in and local-only in the initial implementation. Set
 `features.ai: true`, configure an Ollama-compatible `ai.endpoint` and `ai.model`,

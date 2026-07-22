@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jordanistan/nightops/internal/domain"
 )
 
 // Route identifies the active application console.
@@ -3000,18 +3001,46 @@ func (m Model) renderBlastOff() string {
 }
 
 func (m Model) renderDeepSpace() string {
-	lines := []string{m.wordmark(), m.theme.PanelTitle.Render("DEEP SPACE // ACTIVE MISSION"), "", "ORIGIN  " + m.missionPlan.origin.Label, "WEATHER " + nonEmpty(m.missionPlan.weather, "unknown"), "", m.theme.GoodStyle().Render("MISSION TELEMETRY ONLINE"), ""}
+	lines := []string{
+		m.wordmark(),
+		m.theme.PanelTitle.Render("DEEP SPACE // ACTIVE MISSION"),
+		"",
+		m.theme.GoodStyle().Render("MISSION TELEMETRY ONLINE"),
+		"ORIGIN   " + nonEmpty(m.missionPlan.origin.Label, "unknown") + "    WEATHER  " + nonEmpty(m.missionPlan.weather, "unknown"),
+	}
 	if m.missionPlan.origin.Latitude == nil || m.missionPlan.origin.Longitude == nil {
 		lines = append(lines, m.theme.WarningStyle().Render("POSITION SOURCE  ZIP / coordinates unknown"))
 	} else {
 		lines = append(lines, fmt.Sprintf("POSITION SOURCE  %.4f, %.4f", *m.missionPlan.origin.Latitude, *m.missionPlan.origin.Longitude))
 	}
+	lines = append(lines, "", m.theme.PanelTitle.Render(fmt.Sprintf("CAPTURE MATRIX // %d TARGETS QUEUED", len(m.missionPlan.targets))), "ORDER  TARGET / TYPE    CAPTURE PROFILE")
 	for index, target := range m.missionPlan.targets {
-		marker := "  "
+		marker := "· "
 		if index == m.deepSpaceSelected {
 			marker = "▸ "
 		}
-		lines = append(lines, "", marker+target.Name, targetArt(target.Kind), m.theme.MutedStyle().Render(fmt.Sprintf("RA %.3fh  DEC %.2f°  ·  %s", target.RightAscension, target.Declination, target.Source)))
+		profile := domain.CaptureProfileForKind(target.Kind)
+		window := "unavailable"
+		if m.options.TargetSummary != nil {
+			window = m.options.TargetSummary(m.missionPlan.origin, target)
+		}
+		forecast := "unavailable"
+		if m.options.TargetForecastSummary != nil {
+			forecast = m.options.TargetForecastSummary(m.missionPlan.origin, target, m.missionPlan.forecastPoints)
+		}
+		row := []string{
+			fmt.Sprintf("%s%02d  %s · %s", marker, index+1, compactText(target.Name, 30), strings.ToUpper(target.Kind)),
+			fmt.Sprintf("    COORDINATES  RA %.3fh · DEC %.2f° · %s", target.RightAscension, target.Declination, nonEmpty(target.Source, "catalog")),
+			"    WINDOW       " + compactText(window, 64),
+			"    WEATHER      " + compactText(forecast, 64),
+			"    SETTINGS     " + compactText(profile.Settings, 64),
+			"    GUIDANCE     " + compactText(profile.Guidance, 64),
+		}
+		style := m.theme.Action
+		if index == m.deepSpaceSelected {
+			style = m.theme.SelectedAction
+		}
+		lines = append(lines, "", style.Width(m.panelWidth()-4).Render(strings.Join(row, "\n")))
 	}
 	if len(m.missionPlan.targets) == 0 {
 		lines = append(lines, m.theme.WarningStyle().Render("No catalog targets were scheduled for this mission."))

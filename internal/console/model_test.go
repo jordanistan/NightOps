@@ -186,6 +186,11 @@ func TestDeepSpaceDoesNotAdvertiseUnavailableTelescope(t *testing.T) {
 	if strings.Contains(model.View(), "Enter Slew") {
 		t.Fatal("deep space advertised telescope control without an adapter")
 	}
+	for _, expected := range []string{"CAPTURE MATRIX // 1 TARGETS QUEUED", "COORDINATES", "SETTINGS", "Dual-band / narrowband filter", "GUIDANCE", "WINDOW", "WEATHER"} {
+		if !strings.Contains(model.View(), expected) {
+			t.Fatalf("deep space capture matrix missing %q: %s", expected, model.View())
+		}
+	}
 	updated, _ := model.Update(enterKey())
 	model = updated.(Model)
 	if model.route != RouteDeepSpace || !strings.Contains(model.missionPlan.status, "not configured") {
