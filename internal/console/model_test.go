@@ -447,7 +447,7 @@ func TestZIPValidSubmissionOpensMissionPlanning(t *testing.T) {
 	if model.route != RouteMissionPlanning || model.missionPlan.origin.ZIP != "78701" {
 		t.Fatalf("valid ZIP did not open planning: route=%s origin=%+v", model.route, model.missionPlan.origin)
 	}
-	if !strings.Contains(model.View(), "unknown") {
+	if !strings.Contains(model.View(), "unavailable until coordinates are known") {
 		t.Fatal("planning should disclose unavailable coordinates")
 	}
 }

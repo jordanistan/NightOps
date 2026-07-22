@@ -160,6 +160,25 @@ func Run(ctx context.Context, cfg config.Config) error {
 			return zipOrigin(result, cfg.Origin.Timezone), nil
 		}
 	}
+	if resolveZIP != nil && cfg.Origin.HomeBaseZIP != "" && cfg.Origin.Latitude == 0 && cfg.Origin.Longitude == 0 {
+		if resolved, resolveErr := resolveZIP(cfg.Origin.HomeBaseZIP); resolveErr == nil && resolved.Latitude != nil && resolved.Longitude != nil {
+			cfg.Origin.Latitude = *resolved.Latitude
+			cfg.Origin.Longitude = *resolved.Longitude
+			if resolved.Timezone != "" {
+				cfg.Origin.Timezone = resolved.Timezone
+			}
+			if cfg.App.ConfigPath != "" {
+				if saveErr := config.Save(cfg.App.ConfigPath, cfg); saveErr != nil {
+					log.Warn("save resolved Home Base coordinates", "error", saveErr)
+				}
+			}
+			log.Info("resolved configured Home Base coordinates", "zip", cfg.Origin.HomeBaseZIP)
+		}
+	}
+	location = "Not configured"
+	if cfg.Origin.Latitude != 0 || cfg.Origin.Longitude != 0 {
+		location = fmt.Sprintf("%.4f, %.4f", cfg.Origin.Latitude, cfg.Origin.Longitude)
+	}
 	var telescopeProvider telescope.Provider
 	telescopeStatus := "DISABLED"
 	telescopeName := ""

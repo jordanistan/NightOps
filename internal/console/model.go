@@ -2809,63 +2809,78 @@ func (m Model) forecastPrecipMax() int {
 }
 
 func (m Model) renderMissionPlan() string {
-	origin := []string{m.theme.PanelTitle.Render("MISSION PLANNING"), "", "ORIGIN TYPE     " + m.missionPlan.origin.Kind, "ORIGIN LABEL    " + m.missionPlan.origin.Label}
+	lines := []string{m.theme.PanelTitle.Render("MISSION PLANNING // TONIGHT"), "", "NightOps fills the date, target windows, and weather from this run.", ""}
+	origin := nonEmpty(m.missionPlan.origin.Label, "origin not selected")
 	if m.missionPlan.origin.ZIP != "" {
-		origin = append(origin, "ZIP CODE        "+m.missionPlan.origin.ZIP)
+		origin += " · ZIP " + m.missionPlan.origin.ZIP
 	}
 	if m.missionPlan.origin.Latitude != nil && m.missionPlan.origin.Longitude != nil {
-		origin = append(origin, fmt.Sprintf("COORDINATES     %.6f, %.6f", *m.missionPlan.origin.Latitude, *m.missionPlan.origin.Longitude))
+		origin += fmt.Sprintf(" · %.4f, %.4f", *m.missionPlan.origin.Latitude, *m.missionPlan.origin.Longitude)
+		lines = append(lines, "ORIGIN       "+m.theme.GoodStyle().Render("READY")+" · "+compactText(origin, 58))
 	} else {
-		origin = append(origin, m.theme.MutedStyle().Render("COORDINATES     unknown"))
+		lines = append(lines, "ORIGIN       "+m.theme.WarningStyle().Render("NEEDS COORDINATES")+" · "+compactText(origin, 44))
 	}
-	origin = append(origin, "ASTRONOMY       "+nonEmpty(m.missionPlan.astronomy, "unavailable until coordinates are known"))
-	origin = append(origin, "WEATHER         "+nonEmpty(m.missionPlan.weather, "unavailable"))
-	origin = append(origin, "FORECAST        "+nonEmpty(m.missionPlan.forecast, "unavailable"))
-	origin = append(origin, "ROUTE           "+nonEmpty(m.missionPlan.route, "unavailable"))
+
 	if m.missionPlan.plannedStart != nil && m.missionPlan.plannedEnd != nil {
 		location := m.scheduleLocation()
-		origin = append(origin, "MISSION WINDOW  "+m.missionPlan.plannedStart.In(location).Format("2006-01-02 15:04 MST")+" → "+m.missionPlan.plannedEnd.In(location).Format("2006-01-02 15:04 MST"))
+		window := m.missionPlan.plannedStart.In(location).Format("15:04 MST") + " → " + m.missionPlan.plannedEnd.In(location).Format("15:04 MST")
+		lines = append(lines, "MISSION WINDOW "+m.theme.GoodStyle().Render("TONIGHT")+" · "+window)
 		if m.missionPlan.missionWindow != "" {
-			origin = append(origin, "WINDOW SOURCE   "+m.missionPlan.missionWindow)
+			lines = append(lines, "               "+compactText(m.missionPlan.missionWindow, 56))
 		}
 	} else {
-		origin = append(origin, m.theme.WarningStyle().Render("MISSION WINDOW  unavailable until a location and targets are selected"))
+		lines = append(lines, "MISSION WINDOW "+m.theme.WarningStyle().Render("WAITING")+" · select targets and a usable location")
 	}
-	if m.missionPlan.target != "" {
-		origin = append(origin, fmt.Sprintf("TARGETS         %d selected", len(m.missionPlan.targets)))
+	weatherCheck := nonEmpty(m.missionPlan.weatherDecision, nonEmpty(m.missionPlan.weather, "not available"))
+	lines = append(lines, "WEATHER      "+compactText(weatherCheck, 58))
+	if m.missionPlan.origin.Latitude == nil || m.missionPlan.origin.Longitude == nil {
+		lines = append(lines, m.theme.WarningStyle().Render("COORDINATES   unavailable until coordinates are known"))
+	}
+	if m.missionPlan.astronomy != "" {
+		lines = append(lines, "ASTRONOMY    "+compactText(m.missionPlan.astronomy, 58))
+	}
+	if m.missionPlan.forecast != "" {
+		lines = append(lines, "FORECAST     "+compactText(m.missionPlan.forecast, 58))
+	}
+	if m.missionPlan.route != "" && m.missionPlan.route != "unavailable" {
+		lines = append(lines, "ROUTE        "+compactText(m.missionPlan.route, 58))
+	}
+
+	if len(m.missionPlan.targets) == 0 {
+		lines = append(lines, "TARGETS      "+m.theme.WarningStyle().Render("SELECT TARGETS"))
+	} else {
+		lines = append(lines, fmt.Sprintf("TARGETS      %s · %d selected", m.theme.GoodStyle().Render("READY"), len(m.missionPlan.targets)))
 		for position, target := range m.missionPlan.targets {
-			origin = append(origin, fmt.Sprintf("  %d. %-24s %s", position+1, target.Name, target.Kind))
+			detail := target.Kind
 			if m.options.TargetSummary != nil {
-				origin = append(origin, "     WINDOW       "+m.options.TargetSummary(m.missionPlan.origin, target))
+				detail = compactText(m.options.TargetSummary(m.missionPlan.origin, target), 44)
+			}
+			lines = append(lines, fmt.Sprintf("             %d. %-24s %s", position+1, compactText(target.Name, 24), target.Kind))
+			if m.options.TargetSummary != nil {
+				lines = append(lines, "                  WINDOW "+compactText(detail, 54))
 			}
 			if m.options.TargetForecastSummary != nil {
-				origin = append(origin, "     BEST WEATHER "+m.options.TargetForecastSummary(m.missionPlan.origin, target, m.missionPlan.forecastPoints))
+				lines = append(lines, "                  WEATHER "+compactText(m.options.TargetForecastSummary(m.missionPlan.origin, target, m.missionPlan.forecastPoints), 50))
 			}
 		}
-	} else {
-		origin = append(origin, m.theme.MutedStyle().Render("TARGETS         none selected"))
 	}
-	origin = append(origin, "WEATHER CHECK   "+nonEmpty(m.missionPlan.weatherDecision, "pending target selection"))
+	equipment := nonEmpty(m.missionPlan.equipment, "not selected")
+	lines = append(lines, "EQUIPMENT    "+compactText(equipment, 58))
 	if m.missionPlan.briefPending {
-		origin = append(origin, m.theme.WarningStyle().Render("AI BRIEF        generating from local provider"))
-	} else if m.missionPlan.brief != "" {
-		origin = append(origin, "AI BRIEF        "+m.missionPlan.brief)
+		lines = append(lines, m.theme.WarningStyle().Render("BRIEF        generating…"))
 	}
-	origin = append(origin, "EQUIPMENT       "+nonEmpty(m.missionPlan.equipment, "none selected"))
-	if m.missionPlan.equipmentID != "" {
-		origin = append(origin, "READINESS       "+m.equipmentReadinessLine(m.missionPlan.equipmentID))
-	}
+	lines = append(lines, "", m.theme.PanelTitle.Render("NEXT STEP"))
 	actions := m.missionActions()
 	for index, action := range actions {
 		style := m.theme.Action
 		if index == m.missionPlan.selected {
 			style = m.theme.SelectedAction
 		}
-		origin = append(origin, style.Width(m.panelWidth()-4).Render(action))
+		lines = append(lines, style.Width(m.panelWidth()-4).Render(action))
 	}
-	origin = append(origin, "", m.theme.MutedStyle().Render(m.missionPlan.status), "", m.theme.MutedStyle().Render("↑/k ↓/j Navigate   Enter Select   Esc Back"))
+	lines = append(lines, "", m.theme.MutedStyle().Render(compactText(m.missionPlan.status, 70)), "", m.theme.MutedStyle().Render("↑/k ↓/j Navigate   Enter Select   Esc Back"))
 	wordmark := m.theme.Wordmark.Width(m.panelWidth()).Render("N I G H T O P S")
-	return m.center(lipgloss.JoinVertical(lipgloss.Left, wordmark, m.theme.Panel.Width(m.panelWidth()).Render(lipgloss.JoinVertical(lipgloss.Left, origin...))))
+	return m.center(lipgloss.JoinVertical(lipgloss.Left, wordmark, m.theme.Panel.Width(m.panelWidth()).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))))
 }
 
 func (m Model) renderMissionReview() string {
@@ -3110,7 +3125,11 @@ func (m *Model) requestMissionBrief() tea.Cmd {
 func (m Model) missionActions() []string {
 	actions := []string{"REVIEW & CREATE OBSIDIAN MISSION", "CHANGE ORIGIN", "SAVE AS HOME BASE", "BACK TO LAUNCH"}
 	if m.options.TargetsEnabled && len(m.options.Targets) > 0 {
-		actions = append(actions, "BUILD TARGET SEQUENCE")
+		if len(m.missionPlan.targets) > 0 {
+			actions = append(actions, "CHANGE TARGETS")
+		} else {
+			actions = append(actions, "SELECT TARGETS")
+		}
 	}
 	if m.options.ForecastPoints != nil && len(m.missionPlan.forecastPoints) > 0 {
 		actions = append(actions, "BROWSE HOURLY FORECAST")
@@ -3142,7 +3161,7 @@ func (m Model) missionActions() []string {
 
 func (m Model) targetActionIndex() int {
 	for index, action := range m.missionActions() {
-		if action == "BUILD TARGET SEQUENCE" {
+		if action == "BUILD TARGET SEQUENCE" || action == "SELECT TARGETS" || action == "CHANGE TARGETS" {
 			return index
 		}
 	}
@@ -3483,6 +3502,15 @@ func nonEmpty(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func compactText(value string, limit int) string {
+	value = strings.Join(strings.Fields(value), " ")
+	if limit < 4 || len([]rune(value)) <= limit {
+		return value
+	}
+	runes := []rune(value)
+	return string(runes[:limit-1]) + "…"
 }
 
 func exportStatus(exporter func(string) error) string {
