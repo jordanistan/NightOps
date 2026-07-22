@@ -9,3 +9,8 @@ J2000-equivalent decimal degrees transcribed from NASA Hubble object pages:
 
 This catalog is for planning and identification, not a complete astronomical
 database. Future SkyBase imports must preserve source and coordinate epoch.
+
+The CSV is embedded into the binary and loaded at startup for offline target
+selection. Selected targets are copied into the mission database by stable ID;
+live Wikipedia-compatible reference summaries are cached separately and are
+never required to start an observing session.

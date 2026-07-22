@@ -133,12 +133,13 @@ That service creates a launch-site aggregate and a planned mission, persists
 both through SQLite ports, and projects the result to Obsidian when configured.
 ZIP origins retain NULL coordinates until a real geocoder supplies them; the
 system never substitutes fabricated coordinates.
-Mission Planning also accepts an explicit local observing window. The console
-parses it in the configured origin timezone, validates that the end follows the
-start, stores UTC timestamps in SQLite, and renders the local form back to the
-user. Atlas-selected origins use their catalog timezone, while ZIP origins use
-the configured profile timezone. No schedule is inferred from weather or
-astronomy data.
+Mission Planning calculates the live observing window from the current run's
+astronomical darkness and the selected target visibility intervals. It stores
+the resulting UTC timestamps in SQLite and renders them in the origin timezone.
+Atlas-selected origins use their catalog timezone, while ZIP origins use the
+configured profile timezone. An advanced manual override remains available for
+exceptional cases, but normal sessions do not ask the operator for a date or
+time.
 
 The first Atlas data slice is intentionally local and bounded: it embeds
 source-attributed Austin-area observing fields, including coordinates, timezone,

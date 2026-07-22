@@ -9,3 +9,7 @@ Sources:
 
 - https://austinastro.org/index.php/aas-observing-fields/
 - https://tpwd.texas.gov/state-parks/parks/things-to-do/stargazing/bortle-ratings
+
+The CSV is embedded into the binary and is only used when the Atlas feature is
+enabled and no user-imported catalog is active. Imported catalogs are validated
+and persisted in SQLite; this seed file remains unchanged and versioned in Git.
