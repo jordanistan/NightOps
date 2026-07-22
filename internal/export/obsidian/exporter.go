@@ -4,6 +4,7 @@ package obsidian
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -44,6 +45,60 @@ func (e Exporter) ExportObservation(_ context.Context, mission domain.Mission, s
 	}
 	content := string(existing) + fmt.Sprintf("\n## Observation\n\n- Target: %s ([[Targets/%s]])\n- Recorded: %s\n- Notes: %s\n", safeMarkdown(observation.TargetName), safeName(observation.TargetName), observation.CreatedAt.UTC().Format(time.RFC3339), safeMarkdown(observation.Notes))
 	return atomicWrite(path, content)
+}
+
+// ImportMissionImage copies a local capture into the mission vault and links
+// it from the mission note and the reusable target note.
+func (e Exporter) ImportMissionImage(_ context.Context, mission domain.Mission, site domain.LaunchSite, targetName, sourcePath string) error {
+	if strings.TrimSpace(targetName) == "" {
+		return fmt.Errorf("target name is required")
+	}
+	info, err := os.Stat(sourcePath)
+	if err != nil {
+		return fmt.Errorf("inspect image: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("image path is not a regular file")
+	}
+	extension := strings.ToLower(filepath.Ext(info.Name()))
+	if !supportedImageExtensions[extension] {
+		return fmt.Errorf("unsupported image type %q; use JPG, PNG, GIF, WEBP, or TIFF", extension)
+	}
+	if err := e.ensureMissionNote(mission, site); err != nil {
+		return err
+	}
+	imageDir := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name), "Images")
+	if err := os.MkdirAll(imageDir, 0o755); err != nil {
+		return err
+	}
+	base := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))
+	filename := time.Now().UTC().Format("20060102-150405") + "-" + safeName(base) + extension
+	destination := filepath.Join(imageDir, filename)
+	if err := copyFile(sourcePath, destination); err != nil {
+		return err
+	}
+
+	missionPath := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name)+".md")
+	missionContent, err := os.ReadFile(missionPath)
+	if err != nil {
+		return err
+	}
+	missionLink := fmt.Sprintf("- %s · [[Targets/%s]] · %s\n  ![[Missions/%s/Images/%s]]", safeMarkdown(targetName), safeName(targetName), time.Now().UTC().Format(time.RFC3339), safeName(mission.Name), filename)
+	if err := atomicWrite(missionPath, ensureListItem(string(missionContent), "Captured Images", missionLink)); err != nil {
+		return err
+	}
+
+	targetDir := filepath.Join(e.vaultDir, e.notesDir, "Targets")
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return err
+	}
+	targetPath := filepath.Join(targetDir, safeName(targetName)+".md")
+	targetContent, _ := os.ReadFile(targetPath)
+	if len(targetContent) == 0 {
+		targetContent = []byte(fmt.Sprintf("---\nname: %s\n---\n\n# %s\n", safeMarkdown(targetName), safeMarkdown(targetName)))
+	}
+	targetLink := fmt.Sprintf("- [[Missions/%s]] · %s\n  ![[Missions/%s/Images/%s]]", safeName(mission.Name), time.Now().UTC().Format(time.RFC3339), safeName(mission.Name), filename)
+	return atomicWrite(targetPath, ensureListItem(string(targetContent), "Captured Images", targetLink))
 }
 
 // ExportMissionTarget creates or updates a catalog target note with its
@@ -454,11 +509,40 @@ var staticEquipmentChecklist = []string{
 	"Focus confirmed and test frame reviewed",
 }
 
+var supportedImageExtensions = map[string]bool{
+	".gif": true, ".jpeg": true, ".jpg": true, ".png": true, ".tif": true, ".tiff": true, ".webp": true,
+}
+
 func floatOrUnknown(value *float64, suffix string) string {
 	if value == nil {
 		return "unknown"
 	}
 	return fmt.Sprintf("%.1f%s", *value, suffix)
+}
+
+func copyFile(sourcePath, destinationPath string) error {
+	source, err := os.Open(sourcePath)
+	if err != nil {
+		return fmt.Errorf("open image: %w", err)
+	}
+	defer source.Close()
+	temporary, err := os.CreateTemp(filepath.Dir(destinationPath), ".image-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create image import: %w", err)
+	}
+	temporaryName := temporary.Name()
+	defer os.Remove(temporaryName)
+	if _, err := io.Copy(temporary, source); err != nil {
+		_ = temporary.Close()
+		return fmt.Errorf("copy image: %w", err)
+	}
+	if err := temporary.Close(); err != nil {
+		return fmt.Errorf("close image import: %w", err)
+	}
+	if err := os.Rename(temporaryName, destinationPath); err != nil {
+		return fmt.Errorf("store image: %w", err)
+	}
+	return nil
 }
 
 func linkOrUnknown(value string) string {

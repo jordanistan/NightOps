@@ -167,6 +167,27 @@ func (p MissionPlanner) RecordObservation(ctx context.Context, missionID, target
 	return observation, nil
 }
 
+// ImportMissionImage copies a local capture into the configured vault and
+// links it from both the mission note and the reusable target page.
+func (p MissionPlanner) ImportMissionImage(ctx context.Context, missionID, targetName, sourcePath string) error {
+	if p.Exporter == nil {
+		return fmt.Errorf("Obsidian export is not configured")
+	}
+	importer, ok := p.Exporter.(MissionImageImporter)
+	if !ok {
+		return fmt.Errorf("Obsidian image import is not available")
+	}
+	mission, err := p.Missions.FindMission(ctx, missionID)
+	if err != nil {
+		return err
+	}
+	site, err := p.Sites.FindLaunchSite(ctx, mission.LaunchSiteID)
+	if err != nil {
+		return err
+	}
+	return importer.ImportMissionImage(ctx, mission, site, targetName, sourcePath)
+}
+
 func (p MissionPlanner) transitionMission(ctx context.Context, missionID string, status domain.MissionStatus) (domain.Mission, error) {
 	mission, err := p.Missions.FindMission(ctx, missionID)
 	if err != nil {

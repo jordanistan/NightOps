@@ -49,6 +49,7 @@ const (
 	RouteDeepSpace
 	RouteOperation
 	RouteObservationEntry
+	RouteImageImport
 	RouteDebrief
 	RouteSettings
 	RouteHelp
@@ -117,6 +118,8 @@ func (r Route) String() string {
 		return "Operation"
 	case RouteObservationEntry:
 		return "Observation Entry"
+	case RouteImageImport:
+		return "Image Import"
 	case RouteDebrief:
 		return "Debrief"
 	case RouteSettings:
@@ -180,6 +183,7 @@ type Options struct {
 	StartMission                 func(string) error
 	ActivateMission              func(string) error
 	RecordObservation            func(string, string, string) error
+	UploadMissionImage           func(string, string, string) error
 	RecordDebrief                func(string, string) error
 	CompleteMission              func(string) error
 	AstronomySummary             func(Origin) string
@@ -438,6 +442,12 @@ type ObservationEntryModel struct {
 	focus  int
 	error  string
 }
+type ImageImportModel struct {
+	missionID string
+	target    string
+	path      textinput.Model
+	error     string
+}
 type DebriefModel struct {
 	missionID string
 	count     int
@@ -499,6 +509,7 @@ type Model struct {
 	syncExport         SyncExportModel
 	syncImport         SyncImportModel
 	observation        ObservationEntryModel
+	imageImport        ImageImportModel
 	debrief            DebriefModel
 	settings           SettingsModel
 	help               HelpModel
@@ -554,6 +565,7 @@ func New(theme Theme, provided ...Options) Model {
 		equipmentSetup:     newEquipmentSetup(),
 		equipmentItemSetup: newEquipmentItemSetup(),
 		observation:        newObservationEntry(),
+		imageImport:        newImageImport(),
 		debrief:            newDebrief(),
 		missionPlan:        MissionPlanModel{status: "Origin selected; mission is ready to configure."},
 		target: struct {
@@ -589,6 +601,14 @@ func newDebrief() DebriefModel {
 	summary.CharLimit = 500
 	summary.Width = 72
 	return DebriefModel{summary: summary}
+}
+
+func newImageImport() ImageImportModel {
+	path := textinput.New()
+	path.Prompt = "  IMAGE PATH "
+	path.CharLimit = 512
+	path.Width = 72
+	return ImageImportModel{path: path}
 }
 
 func newEquipmentSetup() struct {
@@ -904,6 +924,8 @@ func (m *Model) handleKey(message tea.KeyMsg) tea.Cmd {
 		return m.updateOperation(key)
 	case RouteObservationEntry:
 		return m.updateObservation(message)
+	case RouteImageImport:
+		return m.updateImageImport(message)
 	case RouteDebrief:
 		return m.updateDebrief(message)
 	case RouteSettings:
@@ -2218,6 +2240,38 @@ func (m *Model) updateObservation(message tea.KeyMsg) tea.Cmd {
 	return command
 }
 
+func (m *Model) updateImageImport(message tea.KeyMsg) tea.Cmd {
+	key := message.String()
+	if key == "esc" {
+		m.imageImport.path.Blur()
+		m.route = m.previousRoute
+		return nil
+	}
+	if key == "enter" {
+		path := strings.TrimSpace(m.imageImport.path.Value())
+		if path == "" {
+			m.imageImport.error = "An image path is required."
+			return nil
+		}
+		if m.options.UploadMissionImage == nil {
+			m.imageImport.error = "Image import is not configured."
+			return nil
+		}
+		if err := m.options.UploadMissionImage(m.imageImport.missionID, m.imageImport.target, path); err != nil {
+			m.imageImport.error = err.Error()
+			return nil
+		}
+		m.imageImport.path.Blur()
+		m.imageImport.error = ""
+		m.missionPlan.status = "Image imported for " + m.imageImport.target + "."
+		m.route = m.previousRoute
+		return nil
+	}
+	var command tea.Cmd
+	m.imageImport.path, command = m.imageImport.path.Update(message)
+	return command
+}
+
 func (m *Model) updateDebrief(message tea.KeyMsg) tea.Cmd {
 	key := message.String()
 	if key == "esc" || key == "b" {
@@ -2430,6 +2484,8 @@ func (m Model) View() string {
 		return m.renderOperation()
 	case RouteObservationEntry:
 		return m.renderObservationEntry()
+	case RouteImageImport:
+		return m.renderImageImport()
 	case RouteDebrief:
 		return m.renderDebrief()
 	case RouteSettings:
@@ -2988,6 +3044,15 @@ func (m *Model) updateDeepSpace(key string) tea.Cmd {
 		m.previousRoute, m.route = RouteDeepSpace, RouteObservationEntry
 		m.observation.target.Focus()
 		return textinput.Blink
+	case "i":
+		if m.options.UploadMissionImage != nil {
+			m.imageImport = newImageImport()
+			m.imageImport.missionID = m.operation.missionID
+			m.imageImport.target = m.missionPlan.targets[m.deepSpaceSelected].Name
+			m.imageImport.path.Focus()
+			m.previousRoute, m.route = RouteDeepSpace, RouteImageImport
+			return textinput.Blink
+		}
 	case "o":
 		m.route = RouteOperation
 	}
@@ -3049,7 +3114,11 @@ func (m Model) renderDeepSpace() string {
 	if m.options.SlewToTarget == nil && m.options.SlewToTargetAt == nil {
 		slewAction = "Telescope control unavailable"
 	}
-	lines = append(lines, "", m.theme.MutedStyle().Render("↑/k ↓/j Target   "+slewAction+"   a Record Observation   o Operation   Esc Back"))
+	imageAction := ""
+	if m.options.UploadMissionImage != nil && len(m.missionPlan.targets) > 0 {
+		imageAction = "   i Upload Image"
+	}
+	lines = append(lines, "", m.theme.MutedStyle().Render("↑/k ↓/j Target   "+slewAction+imageAction+"   a Record Observation   o Operation   Esc Back"))
 	return m.center(lipgloss.JoinVertical(lipgloss.Left, lines...))
 }
 
@@ -3308,6 +3377,27 @@ func (m Model) renderObservationEntry() string {
 	lines := []string{m.wordmark(), m.theme.PanelTitle.Render("FLIGHT RECORDER // OBSERVATION"), "", m.observation.target.View(), m.observation.notes.View(), "", m.theme.MutedStyle().Render("Tab/↑↓ switch field   Enter record   Esc cancel")}
 	if m.observation.error != "" {
 		lines = append(lines, "", m.theme.ErrorStyle().Render(m.observation.error))
+	}
+	return m.center(lipgloss.JoinVertical(lipgloss.Left, lines...))
+}
+
+func (m Model) renderImageImport() string {
+	lines := []string{
+		m.wordmark(),
+		m.theme.PanelTitle.Render("MISSION MEDIA // IMPORT IMAGE"),
+		"",
+		"Add a local capture to the active mission and selected target.",
+		"NightOps copies the file into the vault; the original is not changed.",
+		"",
+		"MISSION       " + shortID(m.imageImport.missionID),
+		"TARGET        " + m.imageImport.target,
+		"",
+		m.imageImport.path.View(),
+		"",
+		m.theme.MutedStyle().Render("Supported: JPG, JPEG, PNG, GIF, WEBP, TIFF   Enter import   Esc cancel"),
+	}
+	if m.imageImport.error != "" {
+		lines = append(lines, "", m.theme.ErrorStyle().Render(m.imageImport.error))
 	}
 	return m.center(lipgloss.JoinVertical(lipgloss.Left, lines...))
 }

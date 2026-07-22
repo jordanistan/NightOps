@@ -198,6 +198,31 @@ func TestDeepSpaceDoesNotAdvertiseUnavailableTelescope(t *testing.T) {
 	}
 }
 
+func TestDeepSpaceOffersImageImportForSelectedTarget(t *testing.T) {
+	var uploadedMission, uploadedTarget, uploadedPath string
+	model := launchModel(Options{UploadMissionImage: func(missionID, target, path string) error {
+		uploadedMission, uploadedTarget, uploadedPath = missionID, target, path
+		return nil
+	}})
+	model.route = RouteDeepSpace
+	model.operation.missionID = "mission-1"
+	model.missionPlan.targets = []TargetSite{{ID: "m31", Name: "Andromeda Galaxy", Kind: "galaxy"}}
+	if !strings.Contains(model.View(), "i Upload Image") {
+		t.Fatal("deep space did not advertise image import")
+	}
+	updated, _ := model.Update(runeKey('i'))
+	model = updated.(Model)
+	if model.route != RouteImageImport || model.imageImport.target != "Andromeda Galaxy" {
+		t.Fatalf("image import did not open for selected target: route=%s target=%q", model.route, model.imageImport.target)
+	}
+	model = typeText(model, "/tmp/m31.png")
+	updated, _ = model.Update(enterKey())
+	model = updated.(Model)
+	if model.route != RouteDeepSpace || uploadedMission != "mission-1" || uploadedTarget != "Andromeda Galaxy" || uploadedPath != "/tmp/m31.png" {
+		t.Fatalf("image import did not return to mission: route=%s mission=%q target=%q path=%q", model.route, uploadedMission, uploadedTarget, uploadedPath)
+	}
+}
+
 func TestDisabledAtlasCannotOpenImport(t *testing.T) {
 	model := launchModel(Options{SaveAtlas: func(string, string) ([]AtlasSite, error) { return nil, nil }})
 	model.route = RouteSettings

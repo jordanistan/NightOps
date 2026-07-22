@@ -112,6 +112,39 @@ func TestExportDebriefIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestImportMissionImageCopiesAndLinksCapture(t *testing.T) {
+	vault := t.TempDir()
+	source := filepath.Join(t.TempDir(), "m31-light.png")
+	if err := os.WriteFile(source, []byte("fake image bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	exporter := New(vault, "NightOps")
+	now := time.Date(2026, 7, 22, 20, 0, 0, 0, time.UTC)
+	site := domain.LaunchSite{ID: "site-1", Name: "Home", Timezone: "UTC", Source: "test", CreatedAt: now, UpdatedAt: now}
+	mission, err := domain.NewMission("mission-1", "Mission", site.ID, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exporter.Export(context.Background(), mission, site); err != nil {
+		t.Fatal(err)
+	}
+	if err := exporter.ImportMissionImage(context.Background(), mission, site, "Andromeda Galaxy", source); err != nil {
+		t.Fatal(err)
+	}
+	imageDir := filepath.Join(vault, "NightOps", "Missions", "Mission", "Images")
+	entries, err := os.ReadDir(imageDir)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("image was not copied into the mission vault: entries=%v err=%v", entries, err)
+	}
+	note := readNote(t, vault, "Missions", "Mission.md")
+	target := readNote(t, vault, "Targets", "Andromeda-Galaxy.md")
+	for _, content := range []string{note, target} {
+		if !strings.Contains(content, "Captured Images") || !strings.Contains(content, "![[Missions/Mission/Images/") {
+			t.Fatalf("image embed missing from generated note: %s", content)
+		}
+	}
+}
+
 func TestExportMissionTargetCreatesMissionScopedNote(t *testing.T) {
 	vault := t.TempDir()
 	exporter := New(vault, "NightOps")

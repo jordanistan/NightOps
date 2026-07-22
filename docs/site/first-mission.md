@@ -59,9 +59,11 @@ After the countdown, Deep Space shows a capture matrix for the selected targets.
 Each row includes coordinates, visibility and weather windows, capture guidance,
 and the same recommended starting settings used in the Obsidian target page.
 Use `↑/k` and `↓/j` to select a target, `a` to record an observation, `o` to
-open the operation lifecycle, and `Esc` to go back. Complete the operation to
-enter Debrief and save a user-authored summary. Flight Recorder entries and
-debriefs remain in the mission note.
+open the operation lifecycle, `i` to import a local capture for the selected
+target, and `Esc` to go back. Image import copies the file into the mission
+vault and embeds it in both the mission note and target page. Complete the
+operation to enter Debrief and save a user-authored summary. Flight Recorder
+entries and debriefs remain in the mission note.
 
 ## If you stay offline
 

@@ -36,6 +36,12 @@ The normal dark-session workflow is intentionally short:
    forecast is deliberately placed at the bottom so actionable mission
    information stays near the top.
 
+During an active mission, select a target and press `i` to import a local JPG,
+PNG, GIF, WEBP, or TIFF capture. Enter the source path; NightOps copies the
+image into `Missions/<mission>/Images/` and adds an Obsidian embed to both the
+mission note and that target's reusable page. The source image is never moved
+or deleted.
+
 The default vault is `~/Documents/Obsidian/NightOps`. NightOps creates the
 parent `Obsidian` directory, the `NightOps` vault directory, and `.obsidian`
 metadata on startup if they are missing. The Final Review action opens the

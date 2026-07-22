@@ -66,6 +66,11 @@ type MissionExporter interface {
 	ExportMissionEquipment(context.Context, domain.Mission, domain.LaunchSite, domain.EquipmentProfile, []domain.EquipmentItem) error
 }
 
+// MissionImageImporter adds a local capture to a mission knowledge vault.
+type MissionImageImporter interface {
+	ImportMissionImage(context.Context, domain.Mission, domain.LaunchSite, string, string) error
+}
+
 // ObservationRepository persists records made during an operation.
 type ObservationRepository interface {
 	SaveObservation(context.Context, domain.Observation) error

@@ -29,7 +29,7 @@ screen, Obsidian projection, Atlas, optional providers, sync, API, and CLI.
 | Launch countdown and Deep Space console | Complete for local mission launch | First console is a single highlighted Launch Mission action; launch enters a 10-to-0 sequence and then an interactive target console |
 | Mission archive/detail | Complete | Read-only SQLite projections and UI tests |
 | Operation launch/activate/complete lifecycle | Complete | Domain transitions and persisted mission timestamps |
-| Observation/Flight Recorder | Complete | SQLite observations and Obsidian preservation tests |
+| Observation/Flight Recorder | Complete | SQLite observations, local image imports, Obsidian embeds, and preservation tests |
 | User-authored debrief persistence | Complete | Completed missions accept validated summaries, persist them in SQLite, reload them, and export an idempotent Obsidian section |
 | Obsidian mission/location/target/equipment links | Complete | Mission, location, target, reusable equipment, and mission-scoped equipment notes are deterministic, linked, and rerunnable |
 | Automated Obsidian mission knowledge template | Complete for catalog targets | Startup-warmed SQLite target knowledge, cache-first target projection, detailed weather/equipment/target sections, target mission history, image links, and Final Review vault-open action |

@@ -386,6 +386,9 @@ func Run(ctx context.Context, cfg config.Config) error {
 			_, err := planner.RecordObservation(ctx, id, target, notes)
 			return err
 		},
+		UploadMissionImage: func(id, target, path string) error {
+			return planner.ImportMissionImage(ctx, id, target, config.ExpandPath(path))
+		},
 		CompleteMission: func(id string) error {
 			_, err := planner.CompleteMission(ctx, id)
 			return err
