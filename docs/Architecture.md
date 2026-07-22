@@ -32,7 +32,11 @@ Each mission exports to:
 
 Obsidian/
 └── NightOps/
+    ├── Index.md
     ├── Missions/
+    │   ├── Active/
+    │   ├── Completed/
+    │   └── Not Completed/
     ├── Locations/
     ├── Targets/
     └── Equipment/
@@ -40,7 +44,7 @@ Obsidian/
 Markdown files contain YAML frontmatter and Obsidian links for backlinks. Mission
 exports create the linked `Locations/` note, and planned or recorded targets
 create a canonical `Targets/` note plus a mission-scoped
-`Missions/<mission>/Targets/` note with backlinks. Rewrites preserve existing
+`Missions/<status>/<mission>/Targets/` note with backlinks. Rewrites preserve existing
 observation and user `## Notes` sections.
 
 Canonical ownership remains with SQLite. Obsidian is a readable projection and
@@ -199,7 +203,7 @@ confirmation. Their stable ID is stored on the mission and included in the
 Obsidian mission frontmatter; an unknown profile cannot be attached because the
 application validates it through the equipment repository. Mission creation
 also projects the selected profile and its recorded inventory into a reusable
-`Equipment/` note and a mission-scoped `Missions/<mission>/Equipment/` snapshot.
+`Equipment/` note and a mission-scoped `Missions/<status>/<mission>/Equipment/` snapshot.
 Reruns replace generated content while preserving a user-authored `## Notes`
 section. Settings also owns a
 local inventory editor for profile items. Readiness is intentionally honest:

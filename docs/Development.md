@@ -144,7 +144,7 @@ the same planning rule.
 Mission Planning can build an ordered sequence from multiple catalog targets.
 Space or Enter toggles a target, `c` confirms the sequence, and the selected
 objects are persisted with the mission and exported into
-`Missions/<mission>/Targets/` notes.
+`Missions/<status>/<mission>/Targets/` notes.
 
 Atlas CSV imports must use the exact header in `internal/atlas/catalog.go`, a
 non-empty version, and source-attributed rows with valid coordinates and

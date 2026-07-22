@@ -48,7 +48,7 @@ func TestExportCreatesLinkedMissionLocationAndTargetNotes(t *testing.T) {
 	if !strings.Contains(missionNote, "planned_start: 2026-07-22T21:00:00Z") || !strings.Contains(missionNote, "## Mission Window") {
 		t.Fatalf("mission window was not exported: %s", missionNote)
 	}
-	if !strings.Contains(locationNote, "id: site-1") || !strings.Contains(targetNote, "[[Missions/First-Light]]") {
+	if !strings.Contains(locationNote, "id: site-1") || !strings.Contains(targetNote, "[[Missions/Active/First-Light]]") {
 		t.Fatalf("linked notes missing metadata/backlink: location=%s target=%s", locationNote, targetNote)
 	}
 }
@@ -79,7 +79,7 @@ func TestLocationAndTargetRewritesPreserveNotesAndAvoidDuplicateLinks(t *testing
 		t.Fatal(err)
 	}
 	target := readNote(t, vault, "Targets", "M-31.md")
-	if strings.Count(target, "[[Missions/Mission]]") != 1 {
+	if strings.Count(target, "[[Missions/Active/Mission]]") != 1 {
 		t.Fatalf("target backlink duplicated: %s", target)
 	}
 }
@@ -131,7 +131,7 @@ func TestImportMissionImageCopiesAndLinksCapture(t *testing.T) {
 	if err := exporter.ImportMissionImage(context.Background(), mission, site, "Andromeda Galaxy", source); err != nil {
 		t.Fatal(err)
 	}
-	imageDir := filepath.Join(vault, "NightOps", "Missions", "Mission", "Images")
+	imageDir := filepath.Join(vault, "NightOps", "Missions", "Active", "Mission", "Images")
 	entries, err := os.ReadDir(imageDir)
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("image was not copied into the mission vault: entries=%v err=%v", entries, err)
@@ -139,8 +139,53 @@ func TestImportMissionImageCopiesAndLinksCapture(t *testing.T) {
 	note := readNote(t, vault, "Missions", "Mission.md")
 	target := readNote(t, vault, "Targets", "Andromeda-Galaxy.md")
 	for _, content := range []string{note, target} {
-		if !strings.Contains(content, "Captured Images") || !strings.Contains(content, "![[Missions/Mission/Images/") {
+		if !strings.Contains(content, "Captured Images") || !strings.Contains(content, "![[Missions/Active/Mission/Images/") {
 			t.Fatalf("image embed missing from generated note: %s", content)
+		}
+	}
+}
+
+func TestMissionLifecycleMovesNoteAndUpdatesDashboard(t *testing.T) {
+	vault := t.TempDir()
+	exporter := New(vault, "NightOps")
+	now := time.Date(2026, 7, 22, 20, 0, 0, 0, time.UTC)
+	site := domain.LaunchSite{ID: "site-1", Name: "Home", Timezone: "UTC", Source: "test", CreatedAt: now, UpdatedAt: now}
+	mission, err := domain.NewMission("mission-1", "Lifecycle Mission", site.ID, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mission.Transition(domain.StatusPlanned, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := exporter.Export(context.Background(), mission, site); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "NightOps", "Missions", "Active", "Lifecycle-Mission.md")); err != nil {
+		t.Fatalf("active mission note missing: %v", err)
+	}
+	if err := mission.Transition(domain.StatusLaunched, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := mission.Transition(domain.StatusActive, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := mission.Transition(domain.StatusCompleted, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := exporter.ExportMissionProjection(context.Background(), mission, site, projection.Mission{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "NightOps", "Missions", "Active", "Lifecycle-Mission.md")); !os.IsNotExist(err) {
+		t.Fatalf("active mission note was not moved: %v", err)
+	}
+	completedPath := filepath.Join(vault, "NightOps", "Missions", "Completed", "Lifecycle-Mission.md")
+	if _, err := os.Stat(completedPath); err != nil {
+		t.Fatalf("completed mission note missing: %v", err)
+	}
+	index := readNote(t, vault, "", "Index.md")
+	for _, expected := range []string{"## Active Missions", "## Completed Missions", "## Not Completed Missions", "[[Missions/Completed/Lifecycle-Mission]]", "| Mission | Status | Launch Site | Date |"} {
+		if !strings.Contains(index, expected) {
+			t.Fatalf("mission dashboard missing %q: %s", expected, index)
 		}
 	}
 }
@@ -158,7 +203,7 @@ func TestExportMissionTargetCreatesMissionScopedNote(t *testing.T) {
 	if err := exporter.ExportMissionTarget(context.Background(), mission, site, target); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(vault, "NightOps", "Missions", "Mission", "Targets", "Andromeda-Galaxy.md")
+	path := filepath.Join(vault, "NightOps", "Missions", "Active", "Mission", "Targets", "Andromeda-Galaxy.md")
 	note, err := os.ReadFile(path)
 	if err != nil || !strings.Contains(string(note), "position: 2") || !strings.Contains(string(note), "[[Targets/Andromeda-Galaxy]]") {
 		t.Fatalf("mission-scoped target note missing: %s err=%v", note, err)
@@ -188,10 +233,10 @@ func TestExportMissionEquipmentIsDeterministicAndLinked(t *testing.T) {
 		t.Fatal(err)
 	}
 	note := readNote(t, vault, "Equipment", "Dwarf-Mini.md")
-	if !strings.Contains(note, "Tripod") || strings.Count(note, "Tripod") != 1 || !strings.Contains(note, "[[Missions/Mission]]") || !strings.Contains(note, "Keep the batteries charged.") {
+	if !strings.Contains(note, "Tripod") || strings.Count(note, "Tripod") != 1 || !strings.Contains(note, "[[Missions/Active/Mission]]") || !strings.Contains(note, "Keep the batteries charged.") {
 		t.Fatalf("equipment note was not deterministic: %s", note)
 	}
-	missionNote := readNote(t, vault, filepath.Join("Missions", "Mission", "Equipment"), "Dwarf-Mini.md")
+	missionNote := readNote(t, vault, filepath.Join("Missions", "Active", "Mission", "Equipment"), "Dwarf-Mini.md")
 	if !strings.Contains(missionNote, "mission_id: mission-1") || !strings.Contains(missionNote, "profile_id: rig-1") {
 		t.Fatalf("mission equipment note missing scoped metadata: %s", missionNote)
 	}
@@ -224,7 +269,7 @@ func TestRichMissionProjectionWritesLiveConditionsTargetsAndHistory(t *testing.T
 	if strings.Index(note, "## Hourly Forecast") < strings.Index(note, "## Selected Targets") {
 		t.Fatalf("hourly forecast should follow the target table: %s", note)
 	}
-	for _, expected := range []string{"A nearby galaxy.", "https://images.test/m31.jpg", "[[Missions/Live-Session]]", "Home Base"} {
+	for _, expected := range []string{"A nearby galaxy.", "https://images.test/m31.jpg", "[[Missions/Active/Live-Session]]", "Home Base"} {
 		if !strings.Contains(targetNote, expected) {
 			t.Fatalf("target knowledge/history missing %q: %s", expected, targetNote)
 		}
@@ -236,7 +281,11 @@ func TestRichMissionProjectionWritesLiveConditionsTargetsAndHistory(t *testing.T
 
 func readNote(t *testing.T, vault, section, name string) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(vault, "NightOps", section, name))
+	path := filepath.Join(vault, "NightOps", section, name)
+	data, err := os.ReadFile(path)
+	if err != nil && section == "Missions" {
+		data, err = os.ReadFile(filepath.Join(vault, "NightOps", section, "Active", name))
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

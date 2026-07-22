@@ -13,8 +13,10 @@ Generated mission content includes:
 - A static pre-flight equipment checklist plus configured equipment context.
 - An ordered target table with visibility context, capture guidance, reusable
   starting settings, and reference links.
-- Local capture imports stored under each mission's `Images/` directory and
+- Local capture imports stored under each mission's status-folder `Images/` directory and
   embedded in both the mission and target notes.
+- A root dashboard table for Active, Completed, and Not Completed missions;
+  lifecycle transitions move notes and rewrite generated links.
 - Target mission history and representative image links when available.
 
 Writes are atomic. Existing user-authored notes and recorder sections must

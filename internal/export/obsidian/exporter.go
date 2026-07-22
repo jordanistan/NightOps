@@ -38,7 +38,7 @@ func (e Exporter) ExportObservation(_ context.Context, mission domain.Mission, s
 	if err := e.Target(mission, observation.TargetName); err != nil {
 		return err
 	}
-	path := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name)+".md")
+	path := e.missionNotePath(mission)
 	existing, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (e Exporter) ImportMissionImage(_ context.Context, mission domain.Mission, 
 	if err := e.ensureMissionNote(mission, site); err != nil {
 		return err
 	}
-	imageDir := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name), "Images")
+	imageDir := filepath.Join(e.missionDir(mission), "Images")
 	if err := os.MkdirAll(imageDir, 0o755); err != nil {
 		return err
 	}
@@ -78,12 +78,12 @@ func (e Exporter) ImportMissionImage(_ context.Context, mission domain.Mission, 
 		return err
 	}
 
-	missionPath := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name)+".md")
+	missionPath := e.missionNotePath(mission)
 	missionContent, err := os.ReadFile(missionPath)
 	if err != nil {
 		return err
 	}
-	missionLink := fmt.Sprintf("- %s · [[Targets/%s]] · %s\n  ![[Missions/%s/Images/%s]]", safeMarkdown(targetName), safeName(targetName), time.Now().UTC().Format(time.RFC3339), safeName(mission.Name), filename)
+	missionLink := fmt.Sprintf("- %s · [[Targets/%s]] · %s\n  ![[%s/Images/%s]]", safeMarkdown(targetName), safeName(targetName), time.Now().UTC().Format(time.RFC3339), e.missionLink(mission), filename)
 	if err := atomicWrite(missionPath, ensureListItem(string(missionContent), "Captured Images", missionLink)); err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (e Exporter) ImportMissionImage(_ context.Context, mission domain.Mission, 
 	if len(targetContent) == 0 {
 		targetContent = []byte(fmt.Sprintf("---\nname: %s\n---\n\n# %s\n", safeMarkdown(targetName), safeMarkdown(targetName)))
 	}
-	targetLink := fmt.Sprintf("- [[Missions/%s]] · %s\n  ![[Missions/%s/Images/%s]]", safeName(mission.Name), time.Now().UTC().Format(time.RFC3339), safeName(mission.Name), filename)
+	targetLink := fmt.Sprintf("- %s · %s\n  ![[%s/Images/%s]]", e.missionLink(mission), time.Now().UTC().Format(time.RFC3339), e.missionLink(mission), filename)
 	return atomicWrite(targetPath, ensureListItem(string(targetContent), "Captured Images", targetLink))
 }
 
@@ -117,19 +117,19 @@ func (e Exporter) ExportMissionTarget(_ context.Context, mission domain.Mission,
 	if content == "" {
 		content = fmt.Sprintf("---\nid: %s\nname: %s\nkind: %s\nright_ascension_deg: %.6f\ndeclination_deg: %.6f\nsource: %s\n---\n\n# %s\n\n## Missions\n", safeMarkdown(target.ID), safeMarkdown(target.Name), safeMarkdown(target.Kind), target.RightAscension, target.Declination, safeMarkdown(target.Source), safeMarkdown(target.Name))
 	}
-	link := fmt.Sprintf("- [[Missions/%s]]", safeName(mission.Name))
+	link := fmt.Sprintf("- [[%s]]", e.missionLink(mission))
 	if !strings.Contains(content, link) {
 		content = strings.TrimRight(content, "\n") + "\n" + link + "\n"
 	}
 	if err := atomicWrite(path, content); err != nil {
 		return err
 	}
-	missionTargetDir := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name), "Targets")
+	missionTargetDir := filepath.Join(e.missionDir(mission), "Targets")
 	if err := os.MkdirAll(missionTargetDir, 0o755); err != nil {
 		return err
 	}
 	missionTargetPath := filepath.Join(missionTargetDir, safeName(target.Name)+".md")
-	missionTargetContent := fmt.Sprintf("---\nmission_id: %s\ntarget_id: %s\nposition: %d\n---\n\n# %s\n\n- Mission: [[Missions/%s]]\n- Catalog target: [[Targets/%s]]\n- Kind: %s\n- Right ascension: %.6f°\n- Declination: %.6f°\n- Source: %s\n", safeMarkdown(mission.ID), safeMarkdown(target.ID), target.Position+1, safeMarkdown(target.Name), safeName(mission.Name), safeName(target.Name), safeMarkdown(target.Kind), target.RightAscension, target.Declination, safeMarkdown(target.Source))
+	missionTargetContent := fmt.Sprintf("---\nmission_id: %s\ntarget_id: %s\nposition: %d\n---\n\n# %s\n\n- Mission: [[%s]]\n- Catalog target: [[Targets/%s]]\n- Kind: %s\n- Right ascension: %.6f°\n- Declination: %.6f°\n- Source: %s\n", safeMarkdown(mission.ID), safeMarkdown(target.ID), target.Position+1, safeMarkdown(target.Name), e.missionLink(mission), safeName(target.Name), safeMarkdown(target.Kind), target.RightAscension, target.Declination, safeMarkdown(target.Source))
 	return atomicWrite(missionTargetPath, missionTargetContent)
 }
 
@@ -146,16 +146,16 @@ func (e Exporter) ExportMissionEquipment(_ context.Context, mission domain.Missi
 	}
 	globalPath := filepath.Join(globalDir, profileName+".md")
 	existingGlobal, _ := os.ReadFile(globalPath)
-	globalContent := equipmentNote(profile, items, fmt.Sprintf("[[Missions/%s]]", safeName(mission.Name))) + preservedNotes(string(existingGlobal))
+	globalContent := equipmentNote(profile, items, fmt.Sprintf("[[%s]]", e.missionLink(mission))) + preservedNotes(string(existingGlobal))
 	if err := atomicWrite(globalPath, globalContent); err != nil {
 		return err
 	}
 
-	missionDir := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name), "Equipment")
+	missionDir := filepath.Join(e.missionDir(mission), "Equipment")
 	if err := os.MkdirAll(missionDir, 0o755); err != nil {
 		return err
 	}
-	missionContent := equipmentNote(profile, items, fmt.Sprintf("[[Missions/%s]]", safeName(mission.Name)))
+	missionContent := equipmentNote(profile, items, fmt.Sprintf("[[%s]]", e.missionLink(mission)))
 	missionContent = strings.Replace(missionContent, "id: "+safeMarkdown(profile.ID)+"\n", "mission_id: "+safeMarkdown(mission.ID)+"\nprofile_id: "+safeMarkdown(profile.ID)+"\n", 1)
 	return atomicWrite(filepath.Join(missionDir, profileName+".md"), missionContent)
 }
@@ -167,7 +167,7 @@ func (e Exporter) ExportMissionProjection(ctx context.Context, mission domain.Mi
 	if err := e.Mission(mission, site); err != nil {
 		return err
 	}
-	path := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name)+".md")
+	path := e.missionNotePath(mission)
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -197,7 +197,7 @@ func (e Exporter) ExportDebrief(_ context.Context, mission domain.Mission, site 
 	if err := e.ensureMissionNote(mission, site); err != nil {
 		return err
 	}
-	path := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name)+".md")
+	path := e.missionNotePath(mission)
 	existing, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -213,16 +213,109 @@ func (e Exporter) ExportDebrief(_ context.Context, mission domain.Mission, site 
 // New creates an exporter rooted at vaultDir.
 func New(vaultDir, notesDir string) Exporter { return Exporter{vaultDir: vaultDir, notesDir: notesDir} }
 
+const (
+	missionActiveFolder    = "Active"
+	missionCompletedFolder = "Completed"
+	missionFailedFolder    = "Not Completed"
+)
+
+func missionFolder(status domain.MissionStatus) string {
+	switch status {
+	case domain.StatusCompleted:
+		return missionCompletedFolder
+	case domain.StatusCancelled, domain.StatusArchived:
+		return missionFailedFolder
+	default:
+		return missionActiveFolder
+	}
+}
+
+func (e Exporter) missionDir(mission domain.Mission) string {
+	return filepath.Join(e.vaultDir, e.notesDir, "Missions", missionFolder(mission.Status), safeName(mission.Name))
+}
+
+func (e Exporter) missionNotePath(mission domain.Mission) string {
+	return filepath.Join(e.vaultDir, e.notesDir, "Missions", missionFolder(mission.Status), safeName(mission.Name)+".md")
+}
+
+func (e Exporter) missionLink(mission domain.Mission) string {
+	return "Missions/" + missionFolder(mission.Status) + "/" + safeName(mission.Name)
+}
+
+// prepareMissionPath migrates legacy flat notes and moves a note when a
+// mission transitions between lifecycle folders. Generated links are updated
+// so target pages and image embeds continue to resolve.
+func (e Exporter) prepareMissionPath(mission domain.Mission) error {
+	newPath := e.missionNotePath(mission)
+	if _, err := os.Stat(newPath); err == nil {
+		return nil
+	}
+	newRoot := filepath.Dir(newPath)
+	if err := os.MkdirAll(newRoot, 0o755); err != nil {
+		return err
+	}
+	legacyRoot := filepath.Join(e.vaultDir, e.notesDir, "Missions")
+	candidates := []struct {
+		path   string
+		prefix string
+	}{
+		{filepath.Join(legacyRoot, safeName(mission.Name)+".md"), "Missions/" + safeName(mission.Name)},
+		{filepath.Join(legacyRoot, missionActiveFolder, safeName(mission.Name)+".md"), "Missions/" + missionActiveFolder + "/" + safeName(mission.Name)},
+		{filepath.Join(legacyRoot, missionCompletedFolder, safeName(mission.Name)+".md"), "Missions/" + missionCompletedFolder + "/" + safeName(mission.Name)},
+		{filepath.Join(legacyRoot, missionFailedFolder, safeName(mission.Name)+".md"), "Missions/" + missionFailedFolder + "/" + safeName(mission.Name)},
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate.path); err != nil {
+			continue
+		}
+		if err := os.Rename(candidate.path, newPath); err != nil {
+			return err
+		}
+		oldAssetDir := filepath.Join(filepath.Dir(candidate.path), safeName(mission.Name))
+		newAssetDir := e.missionDir(mission)
+		if _, err := os.Stat(oldAssetDir); err == nil {
+			if _, newErr := os.Stat(newAssetDir); os.IsNotExist(newErr) {
+				if err := os.Rename(oldAssetDir, newAssetDir); err != nil {
+					return err
+				}
+			}
+		}
+		return e.rewriteMissionLinks(candidate.prefix, e.missionLink(mission))
+	}
+	return nil
+}
+
+func (e Exporter) rewriteMissionLinks(oldPrefix, newPrefix string) error {
+	root := filepath.Join(e.vaultDir, e.notesDir)
+	return filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() || filepath.Ext(path) != ".md" {
+			return err
+		}
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		updated := strings.ReplaceAll(string(content), oldPrefix, newPrefix)
+		if updated != string(content) {
+			return atomicWrite(path, updated)
+		}
+		return nil
+	})
+}
+
 // Mission writes one mission note using an atomic replacement.
 func (e Exporter) Mission(mission domain.Mission, site domain.LaunchSite) error {
 	if err := e.Location(site); err != nil {
 		return err
 	}
-	dir := filepath.Join(e.vaultDir, e.notesDir, "Missions")
+	if err := e.prepareMissionPath(mission); err != nil {
+		return err
+	}
+	path := e.missionNotePath(mission)
+	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	path := filepath.Join(dir, safeName(mission.Name)+".md")
 	existing, _ := os.ReadFile(path)
 	previousRecorder := ""
 	if marker := strings.Index(string(existing), "\n## Observation"); marker >= 0 {
@@ -263,7 +356,10 @@ func (e Exporter) Mission(mission domain.Mission, site domain.LaunchSite) error 
 }
 
 func (e Exporter) ensureMissionNote(mission domain.Mission, site domain.LaunchSite) error {
-	path := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name)+".md")
+	if err := e.prepareMissionPath(mission); err != nil {
+		return err
+	}
+	path := e.missionNotePath(mission)
 	if _, err := os.Stat(path); err == nil {
 		return nil
 	}
@@ -369,18 +465,18 @@ func (e Exporter) writeTargetKnowledge(target domain.MissionTarget, knowledge do
 	if knowledge.ImageURL != "" {
 		content = ensureSection(content, "Images", fmt.Sprintf("![](%s)\n\n- Source image: %s\n", knowledge.ImageURL, knowledge.ImageURL))
 	}
-	missionLine := fmt.Sprintf("- [[Missions/%s]] · %s · %s · %s", safeName(mission.Name), safeMarkdown(string(mission.Status)), safeMarkdown(site.Name), missionDate(mission, site))
+	missionLine := fmt.Sprintf("- [[%s]] · %s · %s · %s", e.missionLink(mission), safeMarkdown(string(mission.Status)), safeMarkdown(site.Name), missionDate(mission, site))
 	content = ensureListItem(content, "Missions", missionLine)
 	return atomicWrite(path, content)
 }
 
 func (e Exporter) writeMissionTarget(target domain.MissionTarget, knowledge domain.TargetKnowledge, mission domain.Mission) error {
-	dir := filepath.Join(e.vaultDir, e.notesDir, "Missions", safeName(mission.Name), "Targets")
+	dir := filepath.Join(e.missionDir(mission), "Targets")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	recommendation := domain.CaptureProfileForKind(target.Kind)
-	content := fmt.Sprintf("---\nmission_id: %s\ntarget_id: %s\nposition: %d\nknowledge_status: %s\n---\n\n# %s\n\n- Mission: [[Missions/%s]]\n- Catalog target: [[Targets/%s]]\n- Kind: %s\n- Right ascension: %.6f°\n- Declination: %.6f°\n- Source: %s\n\n## Capture Guidance\n\n%s\n\n## Capture Settings\n\n- Recommended starting settings: %s\n- Repeatability note: Keep these settings comparable between locations, then adjust for sky brightness, tracking, and sensor response.\n\n## Reference\n\n%s\n", safeMarkdown(mission.ID), safeMarkdown(target.ID), target.Position+1, nonEmpty(knowledge.Status, "unavailable"), safeMarkdown(target.Name), safeName(mission.Name), safeName(target.Name), safeMarkdown(target.Kind), target.RightAscension, target.Declination, safeMarkdown(target.Source), recommendation.Guidance, recommendation.Settings, nonEmpty(safeMarkdown(knowledge.Summary), "Reference unavailable"))
+	content := fmt.Sprintf("---\nmission_id: %s\ntarget_id: %s\nposition: %d\nknowledge_status: %s\n---\n\n# %s\n\n- Mission: [[%s]]\n- Catalog target: [[Targets/%s]]\n- Kind: %s\n- Right ascension: %.6f°\n- Declination: %.6f°\n- Source: %s\n\n## Capture Guidance\n\n%s\n\n## Capture Settings\n\n- Recommended starting settings: %s\n- Repeatability note: Keep these settings comparable between locations, then adjust for sky brightness, tracking, and sensor response.\n\n## Reference\n\n%s\n", safeMarkdown(mission.ID), safeMarkdown(target.ID), target.Position+1, nonEmpty(knowledge.Status, "unavailable"), safeMarkdown(target.Name), e.missionLink(mission), safeName(target.Name), safeMarkdown(target.Kind), target.RightAscension, target.Declination, safeMarkdown(target.Source), recommendation.Guidance, recommendation.Settings, nonEmpty(safeMarkdown(knowledge.Summary), "Reference unavailable"))
 	return atomicWrite(filepath.Join(dir, safeName(target.Name)+".md"), content)
 }
 
@@ -554,13 +650,22 @@ func linkOrUnknown(value string) string {
 
 func (e Exporter) writeIndexes(mission domain.Mission, site domain.LaunchSite, projection projection.Mission) error {
 	root := filepath.Join(e.vaultDir, e.notesDir)
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return err
+	}
+	rootPath := filepath.Join(root, "Index.md")
+	rootContent, _ := os.ReadFile(rootPath)
+	row := fmt.Sprintf("| [[%s]] | %s | [[Locations/%s]] | %s |", e.missionLink(mission), safeMarkdown(string(mission.Status)), safeName(site.Name), missionDate(mission, site))
+	updatedRoot := upsertMissionDashboard(string(rootContent), safeName(mission.Name), missionFolder(mission.Status), row)
+	if err := atomicWrite(rootPath, updatedRoot); err != nil {
+		return err
+	}
 	indexes := []struct {
 		dir   string
 		title string
 		line  string
 	}{
-		{root, "NightOps Mission Knowledge Base", fmt.Sprintf("- [[Missions/%s]] · %s · [[Locations/%s]] · %s", safeName(mission.Name), safeMarkdown(string(mission.Status)), safeName(site.Name), missionDate(mission, site))},
-		{filepath.Join(root, "Missions"), "Missions", fmt.Sprintf("- [[%s]] · %s · %s", safeName(mission.Name), safeMarkdown(string(mission.Status)), missionDate(mission, site))},
+		{filepath.Join(root, "Missions"), "Missions", fmt.Sprintf("- [[%s]] · %s · %s", e.missionLink(mission), safeMarkdown(string(mission.Status)), missionDate(mission, site))},
 		{filepath.Join(root, "Locations"), "Locations", fmt.Sprintf("- [[%s]] · %s", safeName(site.Name), safeMarkdown(site.Source))},
 	}
 	if projection.Equipment != nil {
@@ -568,14 +673,14 @@ func (e Exporter) writeIndexes(mission domain.Mission, site domain.LaunchSite, p
 			dir   string
 			title string
 			line  string
-		}{filepath.Join(root, "Equipment"), "Equipment", fmt.Sprintf("- [[%s]] · [[Missions/%s]]", safeName(projection.Equipment.Name), safeName(mission.Name))})
+		}{filepath.Join(root, "Equipment"), "Equipment", fmt.Sprintf("- [[%s]] · [[%s]]", safeName(projection.Equipment.Name), e.missionLink(mission))})
 	}
 	for _, target := range projection.Targets {
 		indexes = append(indexes, struct {
 			dir   string
 			title string
 			line  string
-		}{filepath.Join(root, "Targets"), "Targets", fmt.Sprintf("- [[%s]] · [[Missions/%s]]", safeName(target.Name), safeName(mission.Name))})
+		}{filepath.Join(root, "Targets"), "Targets", fmt.Sprintf("- [[%s]] · [[%s]]", safeName(target.Name), e.missionLink(mission))})
 	}
 	for _, index := range indexes {
 		if err := os.MkdirAll(index.dir, 0o755); err != nil {
@@ -592,6 +697,46 @@ func (e Exporter) writeIndexes(mission domain.Mission, site domain.LaunchSite, p
 		}
 	}
 	return nil
+}
+
+func upsertMissionDashboard(content, missionName, folder, row string) string {
+	if strings.TrimSpace(content) == "" {
+		content = "---\ntype: dashboard\n---\n\n# NightOps Mission Dashboard\n"
+	}
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if strings.Contains(line, "[[Missions/") && strings.Contains(line, missionName) {
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	content = strings.Join(filtered, "\n")
+	for _, section := range []string{missionActiveFolder, missionCompletedFolder, missionFailedFolder} {
+		title := section + " Missions"
+		marker := "## " + title
+		if !strings.Contains(content, marker) {
+			content = strings.TrimRight(content, "\n") + "\n\n" + marker + "\n\n| Mission | Status | Launch Site | Date |\n| --- | --- | --- | --- |\n"
+			if section == folder {
+				content += row + "\n"
+			}
+			continue
+		}
+		if section != folder {
+			continue
+		}
+		start := strings.Index(content, marker)
+		end := strings.Index(content[start+len(marker):], "\n## ")
+		if end < 0 {
+			end = len(content)
+		} else {
+			end += start + len(marker)
+		}
+		sectionContent := content[start:end]
+		sectionContent = strings.TrimRight(sectionContent, "\n") + "\n" + row + "\n"
+		content = content[:start] + sectionContent + content[end:]
+	}
+	return strings.TrimRight(content, "\n") + "\n"
 }
 
 func nonEmpty(value, fallback string) string {
@@ -633,7 +778,7 @@ func (e Exporter) Target(mission domain.Mission, targetName string) error {
 	if content == "" {
 		content = fmt.Sprintf("---\nname: %s\n---\n\n# %s\n\n## Missions\n", safeMarkdown(targetName), safeMarkdown(targetName))
 	}
-	link := fmt.Sprintf("- [[Missions/%s]]", safeName(mission.Name))
+	link := fmt.Sprintf("- [[%s]]", e.missionLink(mission))
 	if !strings.Contains(content, link) {
 		content += "\n" + link + "\n"
 	}

@@ -11,7 +11,9 @@ NightOps/
 ├── Index.md
 ├── Missions/
 │   ├── Index.md
-│   └── <Mission>.md
+│   ├── Active/<Mission>.md
+│   ├── Completed/<Mission>.md
+│   └── Not Completed/<Mission>.md
 ├── Locations/
 │   └── Index.md
 ├── Targets/
@@ -38,7 +40,7 @@ The normal dark-session workflow is intentionally short:
 
 During an active mission, select a target and press `i` to import a local JPG,
 PNG, GIF, WEBP, or TIFF capture. Enter the source path; NightOps copies the
-image into `Missions/<mission>/Images/` and adds an Obsidian embed to both the
+image into `Missions/<status>/<mission>/Images/` and adds an Obsidian embed to both the
 mission note and that target's reusable page. The source image is never moved
 or deleted.
 
@@ -54,7 +56,9 @@ timestamps, and equipment profile. The mission date is the local date at the
 current run; the window is calculated from astronomical darkness and the
 selected targets. No date or time form is required.
 
-Mission notes include launch-site facts, all cached hourly weather values,
+The vault root `Index.md` opens automatically and contains Active Missions,
+Completed Missions, and Not Completed Missions tables. Mission notes include
+launch-site facts, all cached hourly weather values,
 equipment checkboxes, ordered target links, per-target visibility windows,
 capture guidance, recommended starting settings, and mission-scoped
 target/equipment notes. Each target note retains its source summary,
@@ -64,9 +68,9 @@ without deleting previous links. SQLite is the cache and source of truth;
 Obsidian is the readable projection. Missing live data is labeled unavailable
 and prior cached material is retained.
 
-Generated mission names include the local mission date and start time. The
-mission archive and `Missions/Index.md` are ordered newest-first, making recent
-captures immediately visible while preserving links to older sessions.
+Generated mission names include the local mission date and start time. Notes
+move between the three lifecycle folders as the mission is completed or
+cancelled, while target and image links are rewritten to remain valid.
 
 Settings `o Open Obsidian Vault` and the command palette perform the same local
 open action. The Final Review open action appears only when the configured vault

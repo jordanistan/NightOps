@@ -47,7 +47,7 @@ func TestObsidianURIUsesVaultNameInsteadOfOpeningFileBrowser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "obsidian://open?vault=NightOps" {
+	if got != "obsidian://open?vault=NightOps&file=Index" {
 		t.Fatalf("unexpected Obsidian URI: %q", got)
 	}
 }

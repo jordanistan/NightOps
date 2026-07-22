@@ -35,7 +35,11 @@ The clean NightOps vault has this structure:
 ```text
 NightOps/
 ├── Index.md
-├── Missions/Index.md and mission notes
+├── Missions/
+│   ├── Index.md
+│   ├── Active/
+│   ├── Completed/
+│   └── Not Completed/
 ├── Targets/Index.md and reusable target knowledge notes
 ├── Locations/Index.md and launch-site notes
 └── Equipment/Index.md and reusable equipment notes

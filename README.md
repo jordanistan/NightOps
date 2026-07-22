@@ -53,7 +53,11 @@ Final Review creates or updates a vault with this structure:
 ```text
 NightOps/
 ├── Index.md
-├── Missions/Index.md
+├── Missions/
+│   ├── Index.md
+│   ├── Active/
+│   ├── Completed/
+│   └── Not Completed/
 ├── Targets/Index.md
 ├── Locations/Index.md
 └── Equipment/Index.md
@@ -69,7 +73,10 @@ history with links to each mission and its observing location.
 When no custom name is supplied, missions are named with their local observing
 date and start time, such as `Mission 2026-07-22 21-04-05`. The Mission Archive
 lists the newest observing date first, and the Obsidian mission index keeps
-date-stamped mission notes newest-first so past sessions are easy to find.
+date-stamped mission notes newest-first so past sessions are easy to find. The
+vault root `Index.md` opens automatically with Active, Completed, and Not
+Completed mission tables; notes move between those folders as their lifecycle
+status changes.
 
 ## Configuration
 

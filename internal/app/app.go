@@ -1078,5 +1078,5 @@ func obsidianURI(vaultDir string) (string, error) {
 	if vaultName == "." || vaultName == string(filepath.Separator) || vaultName == "" {
 		return "", fmt.Errorf("cannot determine Obsidian vault name from %q", vaultDir)
 	}
-	return "obsidian://open?vault=" + url.QueryEscape(vaultName), nil
+	return "obsidian://open?vault=" + url.QueryEscape(vaultName) + "&file=" + url.QueryEscape("Index"), nil
 }
