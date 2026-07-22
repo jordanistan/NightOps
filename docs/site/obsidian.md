@@ -32,6 +32,11 @@ The normal dark-session workflow is intentionally short:
    weather report, target sequence, capture guidance, reference summaries, and
    image links before opening the configured vault directory.
 
+The default vault is `~/Documents/Obsidian/NightOps`. NightOps creates the
+parent `Obsidian` directory, the `NightOps` vault directory, and `.obsidian`
+metadata on startup if they are missing. The Final Review action opens the
+`NightOps` vault itself, not its parent directory.
+
 Mission frontmatter auto-fills the mission name, status, launch-site link,
 mission date, live-session flag, calculated dark-sky window, creation and update
 timestamps, and equipment profile. The mission date is the local date at the

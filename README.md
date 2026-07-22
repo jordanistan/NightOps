@@ -39,6 +39,11 @@ NightOps creates its local SQLite database, configuration, caches, logs, and
 device identity under `~/.local/share/nightops`. These runtime files are not
 part of the repository.
 
+The default Obsidian workspace is `~/Documents/Obsidian/NightOps`. Startup
+creates `~/Documents/Obsidian` and the `NightOps` vault directory, including
+`.obsidian`, when they do not exist. A custom `obsidian.vault_dir` or
+`obsidian.notes_dir` can override that location.
+
 ## Obsidian output
 
 Final Review creates or updates a vault with this structure:

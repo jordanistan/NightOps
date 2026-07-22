@@ -53,8 +53,16 @@ func Run(ctx context.Context, cfg config.Config) error {
 	}
 	log.Info("local database ready", "path", filepath.Join(dataDir, "nightops.db"))
 	var exporter application.MissionExporter
+	obsidianRoot := ""
+	obsidianNotes := ""
 	if cfg.Obsidian.Enabled && cfg.Obsidian.VaultDir != "" {
-		exporter = obsidian.New(config.ExpandPath(cfg.Obsidian.VaultDir), cfg.Obsidian.NotesDir)
+		var obsidianErr error
+		obsidianRoot, obsidianNotes, obsidianErr = prepareObsidianWorkspace(cfg)
+		if obsidianErr != nil {
+			log.Warn("prepare Obsidian workspace", "error", obsidianErr)
+		} else {
+			exporter = obsidian.New(obsidianRoot, cfg.Obsidian.NotesDir)
+		}
 	}
 	var knowledgeProvider application.TargetKnowledgeProvider
 	if cfg.Features.TargetKnowledge {
@@ -260,10 +268,9 @@ func Run(ctx context.Context, cfg config.Config) error {
 		apiStatus = "STANDBY"
 	}
 	var openObsidianVault func() error
-	if cfg.Obsidian.Enabled && cfg.Obsidian.VaultDir != "" {
-		vaultDir := config.ExpandPath(cfg.Obsidian.VaultDir)
-		if info, statErr := os.Stat(vaultDir); statErr == nil && info.IsDir() {
-			openObsidianVault = func() error { return exec.Command("xdg-open", vaultDir).Start() }
+	if cfg.Obsidian.Enabled && obsidianNotes != "" {
+		if info, statErr := os.Stat(obsidianNotes); statErr == nil && info.IsDir() {
+			openObsidianVault = func() error { return exec.Command("xdg-open", obsidianNotes).Start() }
 		}
 	}
 	weatherState := initializeWeather(ctx, cfg, store, weatherProvider, cfg.Origin.Latitude, cfg.Origin.Longitude)
@@ -1007,9 +1014,39 @@ func obsidianStatus(cfg config.Config) string {
 	if cfg.Obsidian.VaultDir == "" {
 		return "NOT CONFIGURED"
 	}
-	info, err := os.Stat(config.ExpandPath(cfg.Obsidian.VaultDir))
+	_, notesDir, err := configuredObsidianPath(cfg)
+	if err != nil {
+		return "NOT CONFIGURED"
+	}
+	info, err := os.Stat(notesDir)
 	if err != nil || !info.IsDir() {
 		return "NOT CONFIGURED"
 	}
 	return "READY"
+}
+
+func configuredObsidianPath(cfg config.Config) (string, string, error) {
+	if !cfg.Obsidian.Enabled || strings.TrimSpace(cfg.Obsidian.VaultDir) == "" {
+		return "", "", fmt.Errorf("Obsidian is disabled or no vault directory is configured")
+	}
+	root := config.ExpandPath(cfg.Obsidian.VaultDir)
+	notes := root
+	if strings.TrimSpace(cfg.Obsidian.NotesDir) != "" {
+		notes = filepath.Join(root, cfg.Obsidian.NotesDir)
+	}
+	return root, notes, nil
+}
+
+func prepareObsidianWorkspace(cfg config.Config) (string, string, error) {
+	root, notes, err := configuredObsidianPath(cfg)
+	if err != nil {
+		return "", "", err
+	}
+	if err := os.MkdirAll(notes, 0o755); err != nil {
+		return "", "", fmt.Errorf("create Obsidian notes directory: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Join(notes, ".obsidian"), 0o755); err != nil {
+		return "", "", fmt.Errorf("create Obsidian vault metadata directory: %w", err)
+	}
+	return root, notes, nil
 }

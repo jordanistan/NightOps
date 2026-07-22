@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +17,30 @@ import (
 	syncbundle "github.com/jordanistan/nightops/internal/sync"
 	"github.com/jordanistan/nightops/internal/weather"
 )
+
+func TestPrepareObsidianWorkspaceCreatesDefaultNotesVault(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "Documents", "Obsidian")
+	cfg := config.Defaults()
+	cfg.Obsidian.VaultDir = root
+	cfg.Obsidian.NotesDir = "NightOps"
+
+	preparedRoot, notes, err := prepareObsidianWorkspace(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preparedRoot != root || notes != filepath.Join(root, "NightOps") {
+		t.Fatalf("unexpected Obsidian paths: root=%q notes=%q", preparedRoot, notes)
+	}
+	for _, path := range []string{root, notes, filepath.Join(notes, ".obsidian")} {
+		info, statErr := os.Stat(path)
+		if statErr != nil || !info.IsDir() {
+			t.Fatalf("expected Obsidian directory %q: %v", path, statErr)
+		}
+	}
+	if status := obsidianStatus(cfg); status != "READY" {
+		t.Fatalf("prepared workspace status=%q", status)
+	}
+}
 
 func TestFormatSyncMergeReportSurfacesConflictIDs(t *testing.T) {
 	report := syncbundle.MergeReport{Added: 1, Updated: 2, Skipped: 3, Conflicts: 2, ConflictIDs: []string{"mission:m-1", "launch_site:s-1"}}

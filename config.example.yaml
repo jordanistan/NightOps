@@ -14,6 +14,7 @@ origin:
 
 obsidian:
   enabled: true
+  # NightOps creates this parent and the NightOps vault below it on startup.
   vault_dir: "~/Documents/Obsidian"
   notes_dir: NightOps
 

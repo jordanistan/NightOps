@@ -36,3 +36,7 @@ survive a restart.
 
 Do not commit the user configuration or local database. The repository ignores
 `config.yaml`, SQLite files, logs, `.env`, and common editor directories.
+
+On first start, the default Obsidian workspace is created at
+`~/Documents/Obsidian/NightOps` (with its `.obsidian` metadata directory).
+The TUI reports Obsidian as `READY` after that directory is available.
