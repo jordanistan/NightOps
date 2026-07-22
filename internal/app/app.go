@@ -274,6 +274,12 @@ func Run(ctx context.Context, cfg config.Config) error {
 			openObsidianVault = func() error { return launchObsidian(obsidianNotes) }
 		}
 	}
+	var uploadMissionImage func(string, string, string) error
+	if exporter != nil {
+		uploadMissionImage = func(id, target, path string) error {
+			return planner.ImportMissionImage(ctx, id, target, config.ExpandPath(path))
+		}
+	}
 	weatherState := initializeWeather(ctx, cfg, store, weatherProvider, cfg.Origin.Latitude, cfg.Origin.Longitude)
 	model := console.New(console.ThemeForName(cfg.App.Theme), console.Options{
 		ThemeName:              cfg.App.Theme,
@@ -386,9 +392,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 			_, err := planner.RecordObservation(ctx, id, target, notes)
 			return err
 		},
-		UploadMissionImage: func(id, target, path string) error {
-			return planner.ImportMissionImage(ctx, id, target, config.ExpandPath(path))
-		},
+		UploadMissionImage: uploadMissionImage,
 		CompleteMission: func(id string) error {
 			_, err := planner.CompleteMission(ctx, id)
 			return err
