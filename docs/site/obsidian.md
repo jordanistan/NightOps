@@ -24,7 +24,8 @@ The normal dark-session workflow is intentionally short:
 
 1. Start NightOps before observing. Startup warms the local SQLite target
    knowledge cache from the configured Wikipedia-compatible endpoint.
-2. Choose `LAUNCH MISSION`, select the ordered targets, then choose
+2. Choose `LAUNCH MISSION`. NightOps immediately asks for the ordered targets;
+   select them, then choose
    `LAUNCH + OPEN OBSIDIAN` in Final Review. `LAUNCH + CONTINUE IN NIGHTOPS`
    stays available when you want to remain in the TUI.
 3. NightOps writes the mission, location, equipment checklist, detailed cached
@@ -32,12 +33,14 @@ The normal dark-session workflow is intentionally short:
    image links before opening the configured vault directory.
 
 Mission frontmatter auto-fills the mission name, status, launch-site link,
-mission date, live-session flag, planned window when supplied, creation and
-update timestamps, and equipment profile. A live session does not require a
-date or observing-window form: the mission date is the local date at creation.
+mission date, live-session flag, calculated dark-sky window, creation and update
+timestamps, and equipment profile. The mission date is the local date at the
+current run; the window is calculated from astronomical darkness and the
+selected targets. No date or time form is required.
 
 Mission notes include launch-site facts, all cached hourly weather values,
-equipment checkboxes, ordered target links, capture guidance, and mission-scoped
+equipment checkboxes, ordered target links, per-target visibility windows,
+capture guidance, and mission-scoped
 target/equipment notes. Each target note retains its source summary,
 representative image link, capture guidance, and a mission history line with
 mission, status, location, and date. Reusing a target adds another history line

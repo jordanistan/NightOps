@@ -12,16 +12,16 @@ the automatically generated mission notebook.
 2. Complete the boot animation or press Enter to skip it.
 3. Choose `LAUNCH MISSION`. Select Home Base, ZIP, SkyBase Atlas, or a real GPS
    adapter. Unknown coordinates remain unknown; NightOps never guesses them.
-4. In Mission Planning choose `BUILD TARGET SEQUENCE`. Use Space to select
-   targets in order, then press `c` to confirm. Target pages and cached
-   reference summaries are prepared from SQLite, so this step is quick in the
-   field.
+4. NightOps immediately opens `TONIGHT'S TARGETS`. Use Space to select targets
+   in capture order, then press `c` to build the mission. The target list shows
+   visibility and weather context when coordinates and forecast data exist.
 5. Select an equipment profile when available. Add required inventory in
    Settings before the session if you want the generated checklist to be
-   meaningful. A mission window is optional; live missions automatically use
-   the local date at mission creation.
-6. Choose `REVIEW MISSION` and inspect the origin, target order, equipment,
-   weather, and available astronomy facts.
+   meaningful. The mission date and window are filled automatically from the
+   current run, astronomical darkness, and the selected targets.
+6. Choose `REVIEW & CREATE OBSIDIAN MISSION` and inspect the origin, target
+   windows, equipment, detailed weather, and GO/NO-GO assessment. No date or
+   time entry is required; an advanced override is available only when needed.
 7. Choose `LAUNCH + OPEN OBSIDIAN` to save the mission, generate the complete
    vault structure, and open the configured vault. Choose `LAUNCH + CONTINUE IN
    NIGHTOPS` to remain in the TUI.

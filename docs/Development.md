@@ -50,8 +50,10 @@ console. Boot stages communicate local initialization without inventing remote
 data and can be skipped with Enter or Space. The launch console presents one
 primary neon `LAUNCH MISSION` action and shows database, Obsidian, weather,
 Atlas, and GPS capability states as secondary telemetry. The action uses the
-configured Home Base or opens setup, then starts the retained 10-to-0 countdown
-before Mission Planning.
+configured Home Base or opens setup, then opens the target selector. Target
+selection is the first mission input; the current run, astronomical darkness,
+selected-target visibility, and live/cached weather build the mission context
+automatically.
 
 The configured `app.theme` is applied at startup. Supported palettes are
 `mission-control` and `observatory`; configuration validation rejects other
@@ -272,8 +274,9 @@ The default destination is inside the NightOps data directory under `backups/`;
 users may provide another local path. Backup writes are atomic, use owner-only
 permissions, and never overwrite the active database.
 
-Mission Planning's `REVIEW MISSION` route groups the selected origin, ordered
-targets, observing window, equipment, and available conditions before any write.
+Mission Planning's `REVIEW & CREATE OBSIDIAN MISSION` route groups the selected
+origin, ordered targets, per-target windows, automatic observing window,
+equipment, and weather GO/NO-GO assessment before any write.
 Returning to planning preserves the retained child model. `LAUNCH + OPEN
 OBSIDIAN` or `LAUNCH + CONTINUE IN NIGHTOPS` then persists the planned mission
 and its launch site. When Obsidian is configured, the same confirmation writes
@@ -301,11 +304,12 @@ requires a target name and persists notes locally. Completing an operation
 opens a Debrief screen and preserves all observation entries in the mission
 note.
 
-Mission windows are entered from Mission Planning with `SET MISSION WINDOW`.
-Use `YYYY-MM-DD HH:MM` in the configured origin timezone. Both fields are
-required and the end must be later than the start; persistence stores UTC
-timestamps and Obsidian exports include both the UTC frontmatter and a Mission
-Window section.
+Mission windows are calculated from the current run's astronomical darkness and
+the selected target visibility intervals. No date or time entry is required.
+An `OVERRIDE AUTO WINDOW (ADVANCED)` action remains available for exceptional
+planning cases; it uses `YYYY-MM-DD HH:MM` in the configured origin timezone.
+Persistence stores UTC timestamps and Obsidian exports include the calculated
+window in frontmatter and the Mission Window section.
 
 Equipment profiles are intentionally user-created; the application does not
 seed fictional telescope or camera data. Create them through Settings, select

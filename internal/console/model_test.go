@@ -63,6 +63,39 @@ func TestBootCanBeSkipped(t *testing.T) {
 	}
 }
 
+func TestLaunchStartsWithTargetSelectionAndBuildsLiveMissionWindow(t *testing.T) {
+	start := time.Date(2026, 7, 22, 21, 14, 0, 0, time.UTC)
+	end := start.Add(6 * time.Hour)
+	target := TargetSite{ID: "m31", Name: "Andromeda Galaxy", Kind: "galaxy"}
+	model := launchModel(Options{
+		HomeBaseName:       "Home",
+		HomeBaseConfigured: true,
+		TargetsEnabled:     true,
+		Targets:            []TargetSite{target},
+		MissionWindow: func(_ Origin, selected []TargetSite) (*time.Time, *time.Time, string) {
+			if len(selected) == 0 {
+				return nil, nil, "select targets to calculate a target window"
+			}
+			return &start, &end, "live tonight · 1 target(s) evaluated above 30°"
+		},
+		WeatherAssessment: func(_ Origin, selected []TargetSite) string {
+			return fmt.Sprintf("GO · %d/%d selected target(s) have a dark, weather-qualified window", len(selected), len(selected))
+		},
+	})
+	updated, _ := model.Update(enterKey())
+	model = updated.(Model)
+	if model.route != RouteTargetBrowser || !strings.Contains(model.View(), "TONIGHT'S TARGETS") {
+		t.Fatalf("launch did not start with target selection: route=%s", model.route)
+	}
+	updated, _ = model.Update(enterKey())
+	model = updated.(Model)
+	updated, _ = model.Update(runeKey('c'))
+	model = updated.(Model)
+	if model.route != RouteMissionPlanning || model.missionPlan.plannedStart == nil || !strings.Contains(model.View(), "GO · 1/1") || !strings.Contains(model.View(), "live tonight") {
+		t.Fatalf("target-first planning did not build automatic mission context: route=%s view=%s", model.route, model.View())
+	}
+}
+
 func TestHomeBaseWithoutConfigurationOpensSetup(t *testing.T) {
 	model := launchModel()
 	updated, _ := model.Update(enterKey())
@@ -975,18 +1008,23 @@ func TestConfiguredTelescopeSlewActionUsesSelectedTarget(t *testing.T) {
 		},
 		TelescopeName: "Dwarf Test",
 	})
-	for range 2 {
-		updated, _ := model.Update(enterKey())
-		model = updated.(Model)
+	updated, _ := model.Update(enterKey())
+	model = updated.(Model)
+	if model.route != RouteTargetBrowser {
+		t.Fatalf("launch did not open target selection: %s", model.route)
 	}
+	updated, _ = model.Update(enterKey())
+	model = updated.(Model)
+	updated, _ = model.Update(runeKey('c'))
+	model = updated.(Model)
 	if model.route != RouteMissionPlanning {
 		t.Fatalf("mission planning did not open: %s", model.route)
 	}
 	for range model.targetActionIndex() {
-		updated, _ := model.Update(downKey())
+		updated, _ = model.Update(downKey())
 		model = updated.(Model)
 	}
-	updated, _ := model.Update(enterKey())
+	updated, _ = model.Update(enterKey())
 	model = updated.(Model)
 	updated, _ = model.Update(runeKey(' '))
 	model = updated.(Model)

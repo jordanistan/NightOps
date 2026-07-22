@@ -183,8 +183,10 @@ type Options struct {
 	CompleteMission              func(string) error
 	AstronomySummary             func(Origin) string
 	WeatherSummary               func(Origin) string
+	WeatherAssessment            func(Origin, []TargetSite) string
 	ForecastSummary              func(Origin) string
 	ForecastPoints               func(Origin) []ForecastPoint
+	MissionWindow                func(Origin, []TargetSite) (*time.Time, *time.Time, string)
 	ForecastTimezone             string
 	ForecastCloudMax             int
 	ForecastPrecipMax            int
@@ -324,6 +326,7 @@ type MissionPlanModel struct {
 	status           string
 	astronomy        string
 	weather          string
+	weatherDecision  string
 	forecast         string
 	forecastPoints   []ForecastPoint
 	forecastSelected int
@@ -335,6 +338,7 @@ type MissionPlanModel struct {
 	targets          []TargetSite
 	targetInfo       string
 	targetForecast   string
+	missionWindow    string
 	equipmentID      string
 	equipment        string
 	brief            string
@@ -730,9 +734,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.setMissionOrigin(message.origin)
-		m.missionPlan.status = "Current location acquired from the configured GPS adapter."
-		m.route = RouteMissionPlanning
-		return m, nil
+		m.missionPlan.status = "Current location acquired. Select tonight's targets."
+		return m, m.beginTargetSelection()
 	case gpsUnavailableMsg:
 		if m.route == RouteGPSAcquisition && m.options.LocationProvider == nil {
 			m.error = ErrorModel{title: "GPS UNAVAILABLE", detail: "No GPS adapter is configured for this installation.", context: "GPS"}
@@ -748,13 +751,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			zip := strings.TrimSpace(m.zipEntry.input.Value())
 			m.setMissionOrigin(Origin{Kind: "ZIP Code", Label: "ZIP " + zip, ZIP: zip, Timezone: m.options.ScheduleTimezone})
 			m.missionPlan.status = "ZIP accepted. Geocoding is unavailable; coordinates remain unknown."
-			m.route = RouteMissionPlanning
-			return m, nil
+			return m, m.beginTargetSelection()
 		}
 		m.setMissionOrigin(message.origin)
 		m.missionPlan.status = "ZIP origin resolved from the configured geocoding provider."
-		m.route = RouteMissionPlanning
-		return m, nil
+		return m, m.beginTargetSelection()
 	case missionBriefResultMsg:
 		if m.route != RouteMissionPlanning || !m.missionPlan.briefPending {
 			return m, nil
@@ -1006,11 +1007,14 @@ func (m *Model) startGuidedLaunch() tea.Cmd {
 		label = "Home Base"
 	}
 	m.setMissionOrigin(Origin{Kind: "Home Base", Label: label, ZIP: m.options.HomeBaseZIP, Timezone: m.options.HomeBaseTimezone, Latitude: m.options.HomeBaseLatitude, Longitude: m.options.HomeBaseLongitude})
-	m.missionPlan.status = "Launch data acquisition started."
-	m.blastOff = 10
-	m.operation = OperationModel{}
-	m.previousRoute, m.route = RouteLaunch, RouteBlastOff
-	return tea.Tick(time.Second, func(time.Time) tea.Msg { return blastOffTickMsg{} })
+	if !m.options.TargetsEnabled || len(m.options.Targets) == 0 {
+		m.missionPlan.status = "Launch data loaded. No catalog targets are available; continue with manual observations."
+		m.blastOff = 10
+		m.operation = OperationModel{}
+		m.previousRoute, m.route = RouteLaunch, RouteBlastOff
+		return tea.Tick(time.Second, func(time.Time) tea.Msg { return blastOffTickMsg{} })
+	}
+	return m.beginTargetSelection()
 }
 
 func (m *Model) selectLaunchAction(action launchAction) tea.Cmd {
@@ -1027,17 +1031,33 @@ func (m *Model) selectLaunchAction(action launchAction) tea.Cmd {
 			label = "Home Base"
 		}
 		m.setMissionOrigin(Origin{Kind: "Home Base", Label: label, ZIP: m.options.HomeBaseZIP, Timezone: m.options.HomeBaseTimezone, Latitude: m.options.HomeBaseLatitude, Longitude: m.options.HomeBaseLongitude})
-		m.missionPlan.status = "Launch data acquisition started."
-		m.blastOff = 10
-		m.operation = OperationModel{}
-		m.previousRoute, m.route = RouteLaunch, RouteBlastOff
-		return tea.Tick(time.Second, func(time.Time) tea.Msg { return blastOffTickMsg{} })
+		if !m.options.TargetsEnabled || len(m.options.Targets) == 0 {
+			m.missionPlan.status = "Launch data loaded. No catalog targets are available; continue with manual observations."
+			m.blastOff = 10
+			m.operation = OperationModel{}
+			m.previousRoute, m.route = RouteLaunch, RouteBlastOff
+			return tea.Tick(time.Second, func(time.Time) tea.Msg { return blastOffTickMsg{} })
+		}
+		return m.beginTargetSelection()
 	}
 	m.launchState.selectedOrigin = action.key
 	m.launchState.notice = action.label + " selected. Press Enter on LAUNCH MISSION to continue."
 	if len(m.actions()) > 0 {
 		m.launch.selected = len(m.actions()) - 1
 	}
+	return nil
+}
+
+func (m *Model) beginTargetSelection() tea.Cmd {
+	if !m.options.TargetsEnabled || len(m.options.Targets) == 0 {
+		m.missionPlan.status = "Target catalog unavailable; mission can continue with manual observations."
+		m.route = RouteMissionPlanning
+		return nil
+	}
+	m.target.selected = 0
+	m.target.chosen = make(map[string]bool)
+	m.previousRoute, m.route = RouteMissionPlanning, RouteTargetBrowser
+	m.missionPlan.status = "Select tonight's targets. NightOps will calculate the window and weather after confirmation."
 	return nil
 }
 
@@ -1050,8 +1070,8 @@ func (m *Model) beginOrigin(originKey string) tea.Cmd {
 				label = "Home Base"
 			}
 			m.setMissionOrigin(Origin{Kind: "Home Base", Label: label, ZIP: m.options.HomeBaseZIP, Timezone: m.options.HomeBaseTimezone, Latitude: m.options.HomeBaseLatitude, Longitude: m.options.HomeBaseLongitude})
-			m.missionPlan.status = "Home Base selected; mission is ready to configure."
-			m.route = RouteMissionPlanning
+			m.missionPlan.status = "Home Base selected. Select tonight's targets."
+			return m.beginTargetSelection()
 		} else {
 			m.previousRoute, m.route = RouteLaunch, RouteHomeBaseSetup
 			m.homeBase.focus = 0
@@ -1135,11 +1155,10 @@ func (m *Model) updateHomeBase(message tea.KeyMsg) tea.Cmd {
 			m.options.ForecastTimezone = m.options.HomeBaseTimezone
 		}
 		m.missionPlan.origin = Origin{Kind: "Home Base", Label: name, ZIP: zip, Timezone: m.options.HomeBaseTimezone, Latitude: latitude, Longitude: longitude}
-		m.missionPlan.status = "Home Base saved; mission is ready to configure."
+		m.missionPlan.status = "Home Base saved. Select tonight's targets."
 		m.homeBase.name.Blur()
 		m.homeBase.zip.Blur()
-		m.route = RouteMissionPlanning
-		return nil
+		return m.beginTargetSelection()
 	}
 	var command tea.Cmd
 	if m.homeBase.focus == 0 {
@@ -1175,8 +1194,7 @@ func (m *Model) updateZIP(message tea.KeyMsg) tea.Cmd {
 		m.setMissionOrigin(Origin{Kind: "ZIP Code", Label: "ZIP " + zip, ZIP: zip, Timezone: m.options.ScheduleTimezone})
 		m.missionPlan.status = "ZIP origin accepted. Geocoding is not configured; coordinates are unknown."
 		m.zipEntry.input.Blur()
-		m.route = RouteMissionPlanning
-		return nil
+		return m.beginTargetSelection()
 	}
 	var command tea.Cmd
 	m.zipEntry.input, command = m.zipEntry.input.Update(message)
@@ -1206,8 +1224,8 @@ func (m *Model) updateAtlas(key string) tea.Cmd {
 		site := m.options.AtlasLocations[m.atlas.selected]
 		latitude, longitude := site.Latitude, site.Longitude
 		m.setMissionOrigin(Origin{Kind: "SkyBase Atlas", Label: site.Name, Timezone: site.Timezone, Latitude: &latitude, Longitude: &longitude})
-		m.missionPlan.status = "Atlas observing site selected; mission is ready to configure."
-		m.route = RouteMissionPlanning
+		m.missionPlan.status = "Atlas observing site selected. Select tonight's targets."
+		return m.beginTargetSelection()
 	}
 	return nil
 }
@@ -1337,12 +1355,14 @@ func (m *Model) updateTarget(key string) tea.Cmd {
 				m.missionPlan.targetForecast = m.options.TargetForecastSummary(m.missionPlan.origin, m.missionPlan.targets[0], m.missionPlan.forecastPoints)
 			}
 		}
+		m.refreshMissionAutomation()
 		m.missionPlan.status = fmt.Sprintf("%d target(s) selected for this mission.", len(m.missionPlan.targets))
 	case "c":
 		m.missionPlan.targets = m.selectedTargets()
 		if len(m.missionPlan.targets) > 0 {
 			m.missionPlan.target = m.missionPlan.targets[0].Name
 		}
+		m.refreshMissionAutomation()
 		m.missionPlan.status = fmt.Sprintf("Target sequence saved locally: %d target(s).", len(m.missionPlan.targets))
 		m.route = m.previousRoute
 	}
@@ -2242,6 +2262,9 @@ func (m *Model) setMissionOrigin(origin Origin) {
 	m.missionPlan.target = ""
 	m.missionPlan.targetInfo = ""
 	m.missionPlan.targetForecast = ""
+	m.missionPlan.missionWindow = ""
+	m.missionPlan.plannedStart = nil
+	m.missionPlan.plannedEnd = nil
 	m.missionPlan.forecastPoints = nil
 	if m.options.AstronomySummary != nil {
 		m.missionPlan.astronomy = m.options.AstronomySummary(origin)
@@ -2266,6 +2289,18 @@ func (m *Model) setMissionOrigin(origin Origin) {
 		m.missionPlan.route = m.options.RouteSummary(origin)
 	} else {
 		m.missionPlan.route = "unavailable"
+	}
+	m.refreshMissionAutomation()
+}
+
+func (m *Model) refreshMissionAutomation() {
+	if m.options.MissionWindow != nil {
+		start, end, summary := m.options.MissionWindow(m.missionPlan.origin, m.missionPlan.targets)
+		m.missionPlan.plannedStart, m.missionPlan.plannedEnd = start, end
+		m.missionPlan.missionWindow = summary
+	}
+	if m.options.WeatherAssessment != nil {
+		m.missionPlan.weatherDecision = m.options.WeatherAssessment(m.missionPlan.origin, m.missionPlan.targets)
 	}
 }
 
@@ -2561,7 +2596,7 @@ func (m Model) renderAtlasExport() string {
 }
 
 func (m Model) renderTarget() string {
-	lines := []string{m.wordmark(), m.theme.PanelTitle.Render("MISSION TARGETS // SKYBASE CATALOG"), "", "Build the observing sequence for this mission.", m.theme.MutedStyle().Render("Space/Enter select   c confirm sequence   Esc cancel"), ""}
+	lines := []string{m.wordmark(), m.theme.PanelTitle.Render("TONIGHT'S TARGETS"), "", "Choose what you want to capture. NightOps will calculate each target's dark-sky window and rank the weather automatically.", m.theme.MutedStyle().Render("Space/Enter select   c build mission   Esc back"), ""}
 	for index, target := range m.options.Targets {
 		style := m.theme.Action
 		if index == m.target.selected {
@@ -2577,7 +2612,7 @@ func (m Model) renderTarget() string {
 		}
 		lines = append(lines, style.Width(m.panelWidth()-4).Render(check+" "+target.Name+"\n  "+m.theme.MutedStyle().Render(detail)))
 	}
-	lines = append(lines, "", m.theme.AccentStyle().Render(fmt.Sprintf("%d target(s) selected", len(m.selectedTargets()))), m.theme.MutedStyle().Render("↑/k ↓/j Navigate   Space/Enter Toggle   c Confirm   Esc Back"))
+	lines = append(lines, "", m.theme.AccentStyle().Render(fmt.Sprintf("%d target(s) selected", len(m.selectedTargets()))), m.theme.MutedStyle().Render("↑/k ↓/j Navigate   Space/Enter Toggle   c Build mission   Esc Back"))
 	return m.center(lipgloss.JoinVertical(lipgloss.Left, lines...))
 }
 
@@ -2790,18 +2825,27 @@ func (m Model) renderMissionPlan() string {
 	if m.missionPlan.plannedStart != nil && m.missionPlan.plannedEnd != nil {
 		location := m.scheduleLocation()
 		origin = append(origin, "MISSION WINDOW  "+m.missionPlan.plannedStart.In(location).Format("2006-01-02 15:04 MST")+" → "+m.missionPlan.plannedEnd.In(location).Format("2006-01-02 15:04 MST"))
+		if m.missionPlan.missionWindow != "" {
+			origin = append(origin, "WINDOW SOURCE   "+m.missionPlan.missionWindow)
+		}
 	} else {
-		origin = append(origin, m.theme.WarningStyle().Render("MISSION WINDOW  not scheduled"))
+		origin = append(origin, m.theme.WarningStyle().Render("MISSION WINDOW  unavailable until a location and targets are selected"))
 	}
 	if m.missionPlan.target != "" {
 		origin = append(origin, fmt.Sprintf("TARGETS         %d selected", len(m.missionPlan.targets)))
 		for position, target := range m.missionPlan.targets {
 			origin = append(origin, fmt.Sprintf("  %d. %-24s %s", position+1, target.Name, target.Kind))
+			if m.options.TargetSummary != nil {
+				origin = append(origin, "     WINDOW       "+m.options.TargetSummary(m.missionPlan.origin, target))
+			}
+			if m.options.TargetForecastSummary != nil {
+				origin = append(origin, "     BEST WEATHER "+m.options.TargetForecastSummary(m.missionPlan.origin, target, m.missionPlan.forecastPoints))
+			}
 		}
-		origin = append(origin, "TARGET WINDOW   "+nonEmpty(m.missionPlan.targetInfo, "unavailable"), "BEST CONDITIONS  "+nonEmpty(m.missionPlan.targetForecast, "unavailable"))
 	} else {
 		origin = append(origin, m.theme.MutedStyle().Render("TARGETS         none selected"))
 	}
+	origin = append(origin, "WEATHER CHECK   "+nonEmpty(m.missionPlan.weatherDecision, "pending target selection"))
 	if m.missionPlan.briefPending {
 		origin = append(origin, m.theme.WarningStyle().Render("AI BRIEF        generating from local provider"))
 	} else if m.missionPlan.brief != "" {
@@ -2856,10 +2900,10 @@ func (m Model) renderMissionReview() string {
 		"",
 		"ORIGIN          " + status(m.missionPlan.origin.Label != "", m.missionPlan.origin.Label, "origin required"),
 		"TARGET SEQUENCE " + status(len(m.missionPlan.targets) > 0, targets, targets),
-		"OBSERVING WINDOW " + status(m.missionPlan.plannedStart != nil && m.missionPlan.plannedEnd != nil, window, window),
+		"OBSERVING WINDOW (TONIGHT) " + status(m.missionPlan.plannedStart != nil && m.missionPlan.plannedEnd != nil, window, window),
 		"EQUIPMENT       " + status(m.missionPlan.equipmentID != "", equipment, equipment),
 		"ASTRONOMY       " + nonEmpty(m.missionPlan.astronomy, "unknown until coordinates are available"),
-		"WEATHER         " + nonEmpty(m.missionPlan.weather, "unavailable"),
+		"WEATHER         " + nonEmpty(m.missionPlan.weatherDecision, nonEmpty(m.missionPlan.weather, "unavailable")),
 		"",
 	}
 	for index, action := range []string{"LAUNCH + OPEN OBSIDIAN", "LAUNCH + CONTINUE IN NIGHTOPS", "RETURN TO MISSION PLANNING"} {
@@ -3064,7 +3108,7 @@ func (m *Model) requestMissionBrief() tea.Cmd {
 }
 
 func (m Model) missionActions() []string {
-	actions := []string{"REVIEW MISSION", "CHANGE ORIGIN", "SAVE AS HOME BASE", "BACK TO LAUNCH"}
+	actions := []string{"REVIEW & CREATE OBSIDIAN MISSION", "CHANGE ORIGIN", "SAVE AS HOME BASE", "BACK TO LAUNCH"}
 	if m.options.TargetsEnabled && len(m.options.Targets) > 0 {
 		actions = append(actions, "BUILD TARGET SEQUENCE")
 	}
@@ -3080,10 +3124,8 @@ func (m Model) missionActions() []string {
 	if m.missionPlan.equipmentID != "" {
 		actions = append(actions, "CHECK EQUIPMENT READINESS")
 	}
-	if m.missionPlan.plannedStart != nil && m.missionPlan.plannedEnd != nil {
-		actions = append(actions, "EDIT MISSION WINDOW")
-	} else {
-		actions = append(actions, "SET MISSION WINDOW")
+	if m.missionPlan.plannedStart == nil || m.missionPlan.plannedEnd == nil {
+		actions = append(actions, "OVERRIDE AUTO WINDOW (ADVANCED)")
 	}
 	if (m.options.SlewToTarget != nil || m.options.SlewToTargetAt != nil) && m.missionPlan.target != "" {
 		actions = append(actions, "SLEW TELESCOPE TO TARGET")
@@ -3145,7 +3187,7 @@ func (m Model) readinessActionIndex() int {
 
 func (m Model) scheduleActionIndex() int {
 	for index, action := range m.missionActions() {
-		if action == "SET MISSION WINDOW" || action == "EDIT MISSION WINDOW" {
+		if action == "SET MISSION WINDOW" || action == "EDIT MISSION WINDOW" || action == "OVERRIDE AUTO WINDOW (ADVANCED)" {
 			return index
 		}
 	}

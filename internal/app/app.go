@@ -386,11 +386,17 @@ func Run(ctx context.Context, cfg config.Config) error {
 		WeatherSummary: func(origin console.Origin) string {
 			return weatherSummary(ctx, cfg, store, weatherProvider, origin)
 		},
+		WeatherAssessment: func(origin console.Origin, selected []console.TargetSite) string {
+			return missionWeatherAssessment(ctx, cfg, store, weatherProvider, origin, selected)
+		},
 		ForecastSummary: func(origin console.Origin) string {
 			return weatherForecastSummary(ctx, cfg, store, weatherProvider, origin)
 		},
 		ForecastPoints: func(origin console.Origin) []console.ForecastPoint {
 			return weatherForecastPoints(ctx, cfg, store, weatherProvider, origin)
+		},
+		MissionWindow: func(origin console.Origin, selected []console.TargetSite) (*time.Time, *time.Time, string) {
+			return liveMissionWindow(cfg, origin, selected, time.Now().UTC())
 		},
 		ForecastTimezone:             cfg.Origin.Timezone,
 		ForecastCloudMax:             cfg.Weather.ForecastCloudCoverMax,
@@ -523,6 +529,70 @@ func formatSyncMergeReport(report syncbundle.MergeReport) string {
 func zipOrigin(result geocoding.Result, timezone string) console.Origin {
 	latitude, longitude := result.Latitude, result.Longitude
 	return console.Origin{Kind: "ZIP Code", Label: "ZIP " + result.ZIP + " · " + result.Label, ZIP: result.ZIP, Timezone: timezone, Latitude: &latitude, Longitude: &longitude}
+}
+
+func liveMissionWindow(cfg config.Config, origin console.Origin, selected []console.TargetSite, now time.Time) (*time.Time, *time.Time, string) {
+	if origin.Latitude == nil || origin.Longitude == nil {
+		return nil, nil, "coordinates required"
+	}
+	coordinates := astronomy.Coordinates{Latitude: *origin.Latitude, Longitude: *origin.Longitude}
+	visibility, err := astronomy.CalculateVisibility(now, coordinates)
+	if err != nil || visibility.AstronomicalDusk == nil || visibility.AstronomicalDawn == nil {
+		return nil, nil, "astronomical night unavailable"
+	}
+	start, end := visibility.AstronomicalDusk, visibility.AstronomicalDawn
+	if len(selected) == 0 {
+		return start, end, "astronomical dusk → dawn"
+	}
+	minimumAltitude := targetMinimumAltitude(cfg)
+	for _, target := range selected {
+		targetVisibility, targetErr := astronomy.CalculateTargetVisibility(now, coordinates, astronomy.TargetCoordinates{RightAscension: target.RightAscension, Declination: target.Declination}, minimumAltitude)
+		if targetErr != nil || targetVisibility.Start == nil || targetVisibility.End == nil {
+			continue
+		}
+		if targetVisibility.Start.Before(*start) {
+			start = targetVisibility.Start
+		}
+		if targetVisibility.End.After(*end) {
+			end = targetVisibility.End
+		}
+	}
+	return start, end, fmt.Sprintf("live tonight · %d target(s) evaluated above %.0f°", len(selected), minimumAltitude)
+}
+
+func missionWeatherAssessment(ctx context.Context, cfg config.Config, cache weather.Cache, provider weather.Provider, origin console.Origin, selected []console.TargetSite) string {
+	if len(selected) == 0 {
+		return "select targets to evaluate"
+	}
+	if origin.Latitude == nil || origin.Longitude == nil {
+		return "cannot evaluate without coordinates"
+	}
+	points := weatherForecastPoints(ctx, cfg, cache, provider, origin)
+	if len(points) == 0 {
+		return "UNKNOWN · hourly weather unavailable"
+	}
+	coordinates := astronomy.Coordinates{Latitude: *origin.Latitude, Longitude: *origin.Longitude}
+	eligibleTargets := 0
+	for _, target := range selected {
+		forecast := make([]weather.ForecastPoint, 0, len(points))
+		for _, point := range points {
+			forecast = append(forecast, weather.ForecastPoint{At: point.At, Dark: point.Dark, TemperatureC: point.TemperatureC, CloudCoverPercent: point.CloudCoverPercent, PrecipitationProbability: point.PrecipitationProbability})
+		}
+		ranked, err := weather.RankTargetForecast(forecast, coordinates, astronomy.TargetCoordinates{RightAscension: target.RightAscension, Declination: target.Declination}, weather.RankingConfig{MinimumAltitude: targetMinimumAltitude(cfg), MaximumCloudCover: float64(cfg.Weather.ForecastCloudCoverMax), MaximumPrecipitation: float64(cfg.Weather.ForecastPrecipitationMax)})
+		if err != nil {
+			continue
+		}
+		for _, point := range ranked {
+			if point.Eligible {
+				eligibleTargets++
+				break
+			}
+		}
+	}
+	if eligibleTargets == 0 {
+		return fmt.Sprintf("NO-GO · no selected target meets cloud ≤%d%% and precip ≤%d%%", cfg.Weather.ForecastCloudCoverMax, cfg.Weather.ForecastPrecipitationMax)
+	}
+	return fmt.Sprintf("GO · %d/%d selected target(s) have a dark, weather-qualified window", eligibleTargets, len(selected))
 }
 
 func targetForecastSummary(cfg config.Config, origin console.Origin, target console.TargetSite, points []console.ForecastPoint) string {

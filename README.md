@@ -96,6 +96,13 @@ Community Atlas contributions can also be validated and wrapped as explicit
 `unreviewed` JSON packages with `nightopsctl`; no contribution is silently
 promoted into the active local catalog.
 
+The live session flow starts at `Launch`: choose the observing origin, select
+tonight's targets, and let NightOps calculate target visibility windows,
+astronomical darkness, and a weather GO/NO-GO assessment. The mission date and
+window come from the current run; no date form is required. Final Review then
+creates the complete Obsidian mission pages before opening the vault or
+continuing in the TUI.
+
 Start locally with:
 
 ```sh
