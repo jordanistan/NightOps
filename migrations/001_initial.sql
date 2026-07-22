@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 CREATE TABLE IF NOT EXISTS launch_sites (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    latitude REAL NOT NULL,
-    longitude REAL NOT NULL,
+    latitude REAL,
+    longitude REAL,
     timezone TEXT NOT NULL,
     source TEXT NOT NULL,
     created_at TEXT NOT NULL,

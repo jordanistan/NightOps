@@ -1,0 +1,9 @@
+{
+  "name": "NightOps Companion",
+  "short_name": "NightOps",
+  "start_url": "/companion/",
+  "display": "standalone",
+  "background_color": "#05090d",
+  "theme_color": "#071018",
+  "description": "Offline-first mission archive companion for NightOps"
+}

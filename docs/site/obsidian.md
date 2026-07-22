@@ -1,0 +1,50 @@
+# Obsidian
+
+Obsidian is an interoperability projection, not the canonical database.
+NightOps keeps mission state in local SQLite and writes linked Markdown notes
+using atomic replacement.
+
+The vault projection contains:
+
+```text
+NightOps/
+├── Index.md
+├── Missions/
+│   ├── Index.md
+│   └── <Mission>.md
+├── Locations/
+│   └── Index.md
+├── Targets/
+│   └── Index.md
+└── Equipment/
+    └── Index.md
+```
+
+The normal dark-session workflow is intentionally short:
+
+1. Start NightOps before observing. Startup warms the local SQLite target
+   knowledge cache from the configured Wikipedia-compatible endpoint.
+2. Choose `LAUNCH MISSION`, select the ordered targets, then choose
+   `LAUNCH + OPEN OBSIDIAN` in Final Review. `LAUNCH + CONTINUE IN NIGHTOPS`
+   stays available when you want to remain in the TUI.
+3. NightOps writes the mission, location, equipment checklist, detailed cached
+   weather report, target sequence, capture guidance, reference summaries, and
+   image links before opening the configured vault directory.
+
+Mission frontmatter auto-fills the mission name, status, launch-site link,
+mission date, live-session flag, planned window when supplied, creation and
+update timestamps, and equipment profile. A live session does not require a
+date or observing-window form: the mission date is the local date at creation.
+
+Mission notes include launch-site facts, all cached hourly weather values,
+equipment checkboxes, ordered target links, capture guidance, and mission-scoped
+target/equipment notes. Each target note retains its source summary,
+representative image link, capture guidance, and a mission history line with
+mission, status, location, and date. Reusing a target adds another history line
+without deleting previous links. SQLite is the cache and source of truth;
+Obsidian is the readable projection. Missing live data is labeled unavailable
+and prior cached material is retained.
+
+Settings `o Open Obsidian Vault` and the command palette perform the same local
+open action. The Final Review open action appears only when the configured vault
+directory exists. Mission persistence continues locally if Obsidian is disabled.

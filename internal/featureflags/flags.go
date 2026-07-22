@@ -7,6 +7,9 @@ type Flags struct {
 	Atlas          bool
 	Weather        bool
 	Plugins        bool
+	Telescope      bool
+	AI             bool
+	API            bool
 }
 
 // Enabled reports whether a named feature is enabled.
@@ -20,6 +23,12 @@ func (f Flags) Enabled(name string) bool {
 		return f.Weather
 	case "plugins":
 		return f.Plugins
+	case "telescope":
+		return f.Telescope
+	case "ai":
+		return f.AI
+	case "api":
+		return f.API
 	default:
 		return false
 	}

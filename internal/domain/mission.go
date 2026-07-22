@@ -24,8 +24,8 @@ const (
 type LaunchSite struct {
 	ID        string
 	Name      string
-	Latitude  float64
-	Longitude float64
+	Latitude  *float64
+	Longitude *float64
 	Timezone  string
 	Source    string
 	CreatedAt time.Time
@@ -34,16 +34,17 @@ type LaunchSite struct {
 
 // Mission is the durable aggregate around an observing operation.
 type Mission struct {
-	ID           string
-	Name         string
-	Status       MissionStatus
-	LaunchSiteID string
-	PlannedStart *time.Time
-	PlannedEnd   *time.Time
-	StartedAt    *time.Time
-	CompletedAt  *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                 string
+	Name               string
+	Status             MissionStatus
+	LaunchSiteID       string
+	EquipmentProfileID string
+	PlannedStart       *time.Time
+	PlannedEnd         *time.Time
+	StartedAt          *time.Time
+	CompletedAt        *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 // NewMission creates a mission in the draft state.
@@ -52,6 +53,19 @@ func NewMission(id, name, launchSiteID string, now time.Time) (Mission, error) {
 		return Mission{}, errors.New("mission id, name, and launch site are required")
 	}
 	return Mission{ID: id, Name: name, Status: StatusDraft, LaunchSiteID: launchSiteID, CreatedAt: now, UpdatedAt: now}, nil
+}
+
+// SetSchedule assigns a complete observing window to a mission.
+func (m *Mission) SetSchedule(start, end time.Time) error {
+	if start.IsZero() || end.IsZero() {
+		return errors.New("mission schedule requires start and end")
+	}
+	if !end.After(start) {
+		return errors.New("mission schedule must end after it starts")
+	}
+	start, end = start.UTC(), end.UTC()
+	m.PlannedStart, m.PlannedEnd = &start, &end
+	return nil
 }
 
 // Transition moves a mission through a legal lifecycle transition.

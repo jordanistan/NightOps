@@ -7,6 +7,7 @@ app:
 origin:
   mode: home_base
   home_base_name: Home Base
+  home_base_zip: "78701"
   latitude: 30.2672
   longitude: -97.7431
   timezone: America/Chicago
@@ -16,8 +17,67 @@ obsidian:
   vault_dir: "~/Documents/Obsidian"
   notes_dir: NightOps
 
+weather:
+  provider: open-meteo
+  endpoint: https://api.open-meteo.com/v1/forecast
+  cache_minutes: 60
+  forecast_cloud_cover_max: 50
+  forecast_precipitation_max: 20
+
+geocoding:
+  # Optional provider: nominatim. Results are cached locally for offline reuse.
+  provider: nominatim
+  endpoint: https://nominatim.openstreetmap.org/search
+  timeout_seconds: 8
+  cache_minutes: 10080
+
+target_knowledge:
+  # Wikipedia-compatible page-summary endpoint. Results are cached in SQLite.
+  endpoint: https://en.wikipedia.org/api/rest_v1/page/summary
+  timeout_seconds: 8
+
+routing:
+  provider: osrm
+  endpoint: https://router.project-osrm.org
+  cache_minutes: 360
+  timeout_seconds: 8
+  max_retries: 2
+  retry_backoff_millis: 250
+
+telescope:
+  # Supported providers: alpaca, dwarf
+  provider: alpaca
+  endpoint: ""
+  device_number: 0
+  timeout_seconds: 8
+
+ai:
+  provider: ollama
+  endpoint: http://127.0.0.1:11434/api/generate
+  model: ""
+  timeout_seconds: 30
+
+api:
+  listen_addr: 127.0.0.1:8787
+  allow_sync: false
+  allow_remote: false
+  # Required for non-loopback binding. The value is read from this environment variable.
+  auth_env: ""
+
+plugins:
+  dir: "~/.local/share/nightops/plugins"
+
+astronomy:
+  minimum_target_altitude: 30
+
 features:
   command_palette: true
   atlas: false
-  weather: false
+  weather: true
+  geocoding: true
+  target_knowledge: true
+  routing: false
   plugins: false
+  telescope: false
+  ai: false
+  api: false

@@ -1,0 +1,4 @@
+id,name,kind,right_ascension_deg,declination_deg,source
+m31,Andromeda Galaxy,galaxy,10.684583,41.269278,NASA Hubble M31 catalog
+m42,Orion Nebula,nebula,83.820833,-5.391108,NASA Hubble M42 catalog
+m13,Great Hercules Cluster,globular cluster,250.423458,36.461308,NASA Hubble M13 catalog

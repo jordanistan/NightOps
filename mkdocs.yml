@@ -1,0 +1,40 @@
+site_name: NightOps
+site_description: Offline-first astronomy mission planning for amateur astronomers.
+site_author: NightOps contributors
+docs_dir: docs/site
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+  palette:
+    scheme: slate
+    primary: blue grey
+    accent: cyan
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - First Mission: first-mission.md
+      - Obsidian: obsidian.md
+  - Architecture: architecture.md
+  - Atlas: atlas.md
+  - Development: development.md
+  - FAQ: faq.md
+  - Contributing: contributing.md
+  - Roadmap: roadmap.md
+
+strict: true

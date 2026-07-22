@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071018">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <title>NightOps Companion</title>
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">NIGHTOPS // COMPANION</p>
+        <h1>Mission Archive</h1>
+        <p class="motto">Every night under the stars is a mission worth remembering.</p>
+      </div>
+      <button id="refresh" class="outline">Refresh</button>
+    </header>
+
+    <section class="status" aria-live="polite">
+      <span id="connection-dot" class="dot"></span>
+      <span id="connection-text">Checking local API…</span>
+    </section>
+
+    <form id="auth-form" class="auth-form">
+      <label for="auth-value">Remote API credential <span>(optional; kept in memory only)</span></label>
+      <div class="auth-row">
+        <input id="auth-value" type="password" autocomplete="off" spellcheck="false">
+        <button type="submit">Connect</button>
+      </div>
+    </form>
+
+    <section class="toolbar">
+      <button id="export-sync">Export sync bundle</button>
+      <label class="file-button">Import sync bundle<input id="import-sync" type="file" accept="application/json,.json"></label>
+    </section>
+
+    <section id="notice" class="notice" hidden></section>
+    <section id="missions" class="missions" aria-live="polite"></section>
+    <section id="detail" class="detail" hidden></section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
