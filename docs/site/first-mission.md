@@ -45,6 +45,11 @@ ordered target list, capture guidance, and links into target/location/equipment
 pages. Target notes retain reference summaries, representative image links,
 and a history line for every mission and location that used the object.
 
+Mission names default to the local observing date and start time. The offline
+Mission Archive is newest-first, and the generated Missions index is also kept
+newest-first, so selecting a previous night's capture does not require searching
+for an arbitrary mission name.
+
 ## During an operation
 
 After the countdown, Deep Space shows the selected target sequence. Use `a` to

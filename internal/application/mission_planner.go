@@ -189,10 +189,16 @@ func (p MissionPlanner) CreateMission(ctx context.Context, input PlanInput) (dom
 	if input.Label == "" || input.Kind == "" {
 		return domain.Mission{}, fmt.Errorf("mission origin type and label are required")
 	}
-	if input.Name == "" {
-		input.Name = "NightOps Operation"
-	}
 	now := p.Clock.Now().UTC()
+	if input.Name == "" {
+		location := time.UTC
+		if input.Timezone != "" {
+			if loaded, loadErr := time.LoadLocation(input.Timezone); loadErr == nil {
+				location = loaded
+			}
+		}
+		input.Name = "Mission " + now.In(location).Format("2006-01-02 15-04-05")
+	}
 	siteID, err := domain.NewID()
 	if err != nil {
 		return domain.Mission{}, fmt.Errorf("create launch site ID: %w", err)

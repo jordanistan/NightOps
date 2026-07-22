@@ -63,6 +63,11 @@ source-attributed reference summaries, and links to reusable target history.
 Target notes retain a mission-by-mission history, including links to each
 mission and its observing location.
 
+When no custom name is supplied, missions are named with their local observing
+date and start time, such as `Mission 2026-07-22 21-04-05`. The Mission Archive
+lists the newest observing date first, and the Obsidian mission index keeps
+date-stamped mission notes newest-first so past sessions are easy to find.
+
 ## Configuration
 
 Copy [`config.example.yaml`](config.example.yaml) to the local configuration

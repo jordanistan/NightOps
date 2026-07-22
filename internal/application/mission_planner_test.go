@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +47,9 @@ func TestMissionPlannerPersistsAndExports(t *testing.T) {
 	if mission.PlannedStart == nil || !mission.PlannedStart.Equal(plannedStart) || mission.PlannedEnd == nil || !mission.PlannedEnd.Equal(plannedEnd) {
 		t.Fatalf("mission schedule was not associated: %+v", mission)
 	}
+	if !strings.Contains(mission.Name, "Mission 2026-07-21") {
+		t.Fatalf("mission name did not include the local mission date: %q", mission.Name)
+	}
 	if _, err := store.FindMission(ctx, mission.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -66,14 +70,15 @@ func TestMissionPlannerPersistsAndExports(t *testing.T) {
 		}
 	}
 	knowledgeNote, err := os.ReadFile(filepath.Join(vault, "NightOps", "Targets", "Andromeda-Galaxy.md"))
-	if err != nil || !contains(string(knowledgeNote), "Cached reference for Andromeda Galaxy") || !contains(string(knowledgeNote), "[[Missions/NightOps-Operation]]") {
+	missionNoteName := strings.ReplaceAll(mission.Name, " ", "-")
+	if err != nil || !contains(string(knowledgeNote), "Cached reference for Andromeda Galaxy") || !contains(string(knowledgeNote), "[[Missions/"+missionNoteName+"]]") {
 		t.Fatalf("target reference knowledge was not projected: %s err=%v", knowledgeNote, err)
 	}
 	site, err := store.FindLaunchSite(ctx, mission.LaunchSiteID)
 	if err != nil || site.Timezone != "America/Chicago" {
 		t.Fatalf("launch-site timezone was not persisted: %+v err=%v", site, err)
 	}
-	note, err := os.ReadFile(filepath.Join(vault, "NightOps", "Missions", "NightOps-Operation.md"))
+	note, err := os.ReadFile(filepath.Join(vault, "NightOps", "Missions", missionNoteName+".md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,10 +86,10 @@ func TestMissionPlannerPersistsAndExports(t *testing.T) {
 		t.Fatalf("export did not preserve unknown coordinates: %s", note)
 	}
 	equipmentNote, err := os.ReadFile(filepath.Join(vault, "NightOps", "Equipment", "Visual-Rig.md"))
-	if err != nil || !contains(string(equipmentNote), "Dwarf Mini") || !contains(string(equipmentNote), "[[Missions/NightOps-Operation]]") {
+	if err != nil || !contains(string(equipmentNote), "Dwarf Mini") || !contains(string(equipmentNote), "[[Missions/"+missionNoteName+"]]") {
 		t.Fatalf("equipment projection was not exported: %s err=%v", equipmentNote, err)
 	}
-	missionEquipmentNote, err := os.ReadFile(filepath.Join(vault, "NightOps", "Missions", "NightOps-Operation", "Equipment", "Visual-Rig.md"))
+	missionEquipmentNote, err := os.ReadFile(filepath.Join(vault, "NightOps", "Missions", missionNoteName, "Equipment", "Visual-Rig.md"))
 	if err != nil || !contains(string(missionEquipmentNote), "mission_id: "+mission.ID) || !contains(string(missionEquipmentNote), "required") {
 		t.Fatalf("mission-scoped equipment projection was not exported: %s err=%v", missionEquipmentNote, err)
 	}
@@ -104,7 +109,7 @@ func TestMissionPlannerPersistsAndExports(t *testing.T) {
 	if _, err := planner.CompleteMission(ctx, mission.ID); err != nil {
 		t.Fatal(err)
 	}
-	note, err = os.ReadFile(filepath.Join(vault, "NightOps", "Missions", "NightOps-Operation.md"))
+	note, err = os.ReadFile(filepath.Join(vault, "NightOps", "Missions", missionNoteName+".md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +124,7 @@ func TestMissionPlannerPersistsAndExports(t *testing.T) {
 	if err != nil || loadedDebrief.Summary != debrief.Summary {
 		t.Fatalf("debrief did not round-trip: %+v err=%v", loadedDebrief, err)
 	}
-	note, err = os.ReadFile(filepath.Join(vault, "NightOps", "Missions", "NightOps-Operation.md"))
+	note, err = os.ReadFile(filepath.Join(vault, "NightOps", "Missions", missionNoteName+".md"))
 	if err != nil || !contains(string(note), "## Debrief") || !contains(string(note), "Clear skies and excellent transparency.") {
 		t.Fatalf("debrief export missing: %s err=%v", note, err)
 	}

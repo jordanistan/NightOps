@@ -53,6 +53,10 @@ without deleting previous links. SQLite is the cache and source of truth;
 Obsidian is the readable projection. Missing live data is labeled unavailable
 and prior cached material is retained.
 
+Generated mission names include the local mission date and start time. The
+mission archive and `Missions/Index.md` are ordered newest-first, making recent
+captures immediately visible while preserving links to older sessions.
+
 Settings `o Open Obsidian Vault` and the command palette perform the same local
 open action. The Final Review open action appears only when the configured vault
 directory exists. Mission persistence continues locally if Obsidian is disabled.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -337,18 +338,77 @@ func ensureSection(content, title, body string) string {
 
 func ensureListItem(content, title, item string) string {
 	if strings.Contains(content, item) {
+		if title == "Records" {
+			return sortRecordItems(content)
+		}
 		return content
 	}
 	marker := "\n## " + title
+	var updated string
 	if index := strings.Index(content, marker); index >= 0 {
 		end := strings.Index(content[index+len(marker):], "\n## ")
 		if end >= 0 {
 			end += index + len(marker)
-			return content[:end] + "\n" + item + content[end:]
+			updated = content[:end] + "\n" + item + content[end:]
+		} else {
+			updated = strings.TrimRight(content, "\n") + "\n" + item + "\n"
 		}
-		return strings.TrimRight(content, "\n") + "\n" + item + "\n"
+	} else {
+		updated = ensureSection(content, title, item)
 	}
-	return ensureSection(content, title, item)
+	if title == "Records" {
+		return sortRecordItems(updated)
+	}
+	return updated
+}
+
+func sortRecordItems(content string) string {
+	marker := "\n## Records"
+	index := strings.Index(content, marker)
+	if index < 0 {
+		return content
+	}
+	sectionEnd := strings.Index(content[index+len(marker):], "\n## ")
+	if sectionEnd < 0 {
+		sectionEnd = len(content)
+	} else {
+		sectionEnd += index + len(marker)
+	}
+	section := strings.Split(content[index+len(marker):sectionEnd], "\n")
+	positions := make([]int, 0)
+	items := make([]string, 0)
+	for lineIndex, line := range section {
+		if strings.HasPrefix(strings.TrimSpace(line), "- ") {
+			positions = append(positions, lineIndex)
+			items = append(items, line)
+		}
+	}
+	if len(items) < 2 {
+		return content
+	}
+	sort.SliceStable(items, func(left, right int) bool {
+		leftDate, rightDate := recordDate(items[left]), recordDate(items[right])
+		if leftDate != rightDate {
+			return leftDate > rightDate
+		}
+		return false
+	})
+	for itemIndex, lineIndex := range positions {
+		section[lineIndex] = items[itemIndex]
+	}
+	return content[:index+len(marker)] + strings.Join(section, "\n") + content[sectionEnd:]
+}
+
+func recordDate(value string) string {
+	for index := 0; index+10 <= len(value); index++ {
+		candidate := value[index : index+10]
+		if candidate[4] == '-' && candidate[7] == '-' {
+			if _, err := time.Parse("2006-01-02", candidate); err == nil {
+				return candidate
+			}
+		}
+	}
+	return ""
 }
 
 func missionDate(mission domain.Mission, site domain.LaunchSite) string {

@@ -3401,10 +3401,7 @@ func (m Model) renderMissionArchive() string {
 			if index == m.missionArchive.selected {
 				style = m.theme.SelectedAction
 			}
-			detail := strings.ToUpper(nonEmpty(mission.Status, "unknown")) + " · " + nonEmpty(mission.LaunchSiteName, "site unknown")
-			if mission.PlannedStart != nil {
-				detail += " · " + formatArchiveTime(*mission.PlannedStart, mission.Timezone)
-			}
+			detail := formatArchiveTime(archiveMissionDate(mission), mission.Timezone) + " · " + strings.ToUpper(nonEmpty(mission.Status, "unknown")) + " · " + nonEmpty(mission.LaunchSiteName, "site unknown")
 			lines = append(lines, style.Width(m.panelWidth()-4).Render(mission.Name+"\n"+m.theme.MutedStyle().Render(detail)))
 		}
 	}
@@ -3417,7 +3414,7 @@ func (m Model) renderMissionArchive() string {
 
 func (m Model) renderMissionDetail() string {
 	mission := m.missionDetail
-	lines := []string{m.wordmark(), m.theme.PanelTitle.Render("MISSION // ARCHIVE DETAIL"), "", "NAME            " + mission.Name, "STATUS          " + strings.ToUpper(nonEmpty(mission.Status, "unknown")), "MISSION ID      " + mission.ID, "LAUNCH SITE     " + nonEmpty(mission.LaunchSiteName, "unknown"), "EQUIPMENT       " + nonEmpty(mission.EquipmentProfileID, "none selected"), "CREATED         " + formatArchiveTime(mission.CreatedAt, mission.Timezone)}
+	lines := []string{m.wordmark(), m.theme.PanelTitle.Render("MISSION // ARCHIVE DETAIL"), "", "NAME            " + mission.Name, "MISSION DATE    " + formatArchiveTime(archiveMissionDate(mission), mission.Timezone), "STATUS          " + strings.ToUpper(nonEmpty(mission.Status, "unknown")), "MISSION ID      " + mission.ID, "LAUNCH SITE     " + nonEmpty(mission.LaunchSiteName, "unknown"), "EQUIPMENT       " + nonEmpty(mission.EquipmentProfileID, "none selected"), "CREATED         " + formatArchiveTime(mission.CreatedAt, mission.Timezone)}
 	if mission.PlannedStart != nil && mission.PlannedEnd != nil {
 		lines = append(lines, "MISSION WINDOW  "+formatArchiveTime(*mission.PlannedStart, mission.Timezone)+" → "+formatArchiveTime(*mission.PlannedEnd, mission.Timezone))
 	} else {
@@ -3425,6 +3422,13 @@ func (m Model) renderMissionDetail() string {
 	}
 	lines = append(lines, "", m.theme.MutedStyle().Render("Mission records are owned by SQLite and projected to Obsidian when configured."), "", m.theme.MutedStyle().Render("b/Esc Back"))
 	return m.center(lipgloss.JoinVertical(lipgloss.Left, lines...))
+}
+
+func archiveMissionDate(mission MissionSummary) time.Time {
+	if mission.PlannedStart != nil {
+		return *mission.PlannedStart
+	}
+	return mission.CreatedAt
 }
 
 func (m Model) renderSyncExport() string {
